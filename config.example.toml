@@ -1,0 +1,57 @@
+# Tele-TUI Configuration
+# Copy this file to ~/.config/tele-tui/config.toml
+
+# Obtain API credentials from https://my.telegram.org/apps
+[telegram]
+api_id = 0
+api_hash = ""
+phone = ""
+
+# Database and file storage paths
+[storage]
+database_dir = "~/.local/share/tele-tui/database"
+files_dir = "~/.local/share/tele-tui/files"
+
+# UI preferences
+[ui]
+theme = "dark"               # "dark" or "light"
+chat_list_width = 30         # percentage of terminal width
+show_avatars = true
+timestamp_format = "15:04"   # Go time format
+date_format = "2006-01-02"
+
+# Media settings
+[media]
+image_protocol = "auto"      # "auto", "sixel", "kitty", "blocks"
+max_image_width = 40         # columns
+max_image_height = 20        # rows
+voice_player = "mpv"         # "mpv", "ffplay", "paplay"
+video_player = "mpv"         # "mpv", "vlc", "xdg-open"
+auto_download_photos = true
+auto_download_voice = true
+auto_download_limit_mb = 10
+
+# Notification settings
+[notifications]
+enabled = true
+sound = false
+show_preview = true
+
+# Keybindings (vim-style defaults)
+[keys]
+quit = "ctrl+c"
+focus_chat_list = "ctrl+1"
+focus_chat_view = "ctrl+2"
+focus_composer = "ctrl+3"
+search = "/"
+contacts = "ctrl+k"
+next_chat = "ctrl+j"
+prev_chat = "ctrl+k"
+reply = "r"
+edit_message = "e"
+delete_message = "d"
+forward = "f"
+scroll_up = "k"
+scroll_down = "j"
+page_up = "ctrl+u"
+page_down = "ctrl+d"
