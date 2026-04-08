@@ -1,0 +1,90 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install TDLib dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake gperf zlib1g-dev libssl-dev
+
+      - name: Cache TDLib
+        id: cache-tdlib
+        uses: actions/cache@v4
+        with:
+          path: ~/td/tdlib
+          key: tdlib-${{ matrix.os }}-v1.8
+
+      - name: Build TDLib
+        if: steps.cache-tdlib.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/tdlib/td.git ~/td/td-src
+          cd ~/td/td-src
+          mkdir build && cd build
+          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/td/tdlib ..
+          cmake --build . -j$(nproc)
+          cmake --install .
+
+      - name: Build telegram-cli
+        run: |
+          CGO_ENABLED=1 \
+          CGO_CFLAGS="-I$HOME/td/tdlib/include" \
+          CGO_LDFLAGS="-L$HOME/td/tdlib/lib -ltdjson" \
+          go build -trimpath -ldflags="-s -w" -o bin/tele-tui ./cmd/teletui
+
+      - name: Verify binary
+        run: |
+          file bin/tele-tui
+          ls -lh bin/tele-tui
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tele-tui-${{ matrix.os }}
+          path: bin/tele-tui
+
+  release:
+    name: Release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Package binaries
+        run: |
+          for dir in tele-tui-*; do
+            os=$(echo "$dir" | sed 's/tele-tui-//')
+            mv "$dir/tele-tui" "tele-tui-linux-amd64-${os}"
+          done
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tele-tui-*
+          generate_release_notes: true
