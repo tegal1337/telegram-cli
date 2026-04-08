@@ -10,9 +10,15 @@ type ErrorMsg struct {
 	Err error
 }
 
+// AuthStateChangedMsg is sent from the authorizer callback.
+type AuthStateChangedMsg struct {
+	State int
+	Hint  string
+}
+
 // AuthenticatedMsg signals that authentication is complete.
 type AuthenticatedMsg struct {
-	UserID    int64
+	UserId    int64
 	FirstName string
 	LastName  string
 }

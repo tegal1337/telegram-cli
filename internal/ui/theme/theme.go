@@ -1,12 +1,10 @@
 package theme
 
 import (
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// Theme holds all the styles used across the TUI.
 type Theme struct {
-	// Base colors
 	Primary     lipgloss.Color
 	Secondary   lipgloss.Color
 	Accent      lipgloss.Color
@@ -18,80 +16,77 @@ type Theme struct {
 	Success     lipgloss.Color
 	Warning     lipgloss.Color
 
-	// Chat list styles
-	ChatListPane        lipgloss.Style
-	ChatListItem        lipgloss.Style
-	ChatListItemActive  lipgloss.Style
-	ChatListTitle       lipgloss.Style
-	ChatListPreview     lipgloss.Style
-	ChatListTime        lipgloss.Style
-	ChatListUnread      lipgloss.Style
-	ChatListOnline      lipgloss.Style
+	// Panel styles
+	PanelNormal  lipgloss.Style
+	PanelFocused lipgloss.Style
 
-	// Chat view styles
-	ChatViewPane        lipgloss.Style
-	ChatViewHeader      lipgloss.Style
-	MessageBubbleOwn    lipgloss.Style
-	MessageBubbleOther  lipgloss.Style
-	MessageSender       lipgloss.Style
-	MessageTime         lipgloss.Style
-	MessageStatus       lipgloss.Style
-	MessageReply        lipgloss.Style
-	MessageSystem       lipgloss.Style
+	// Chat list
+	ChatListItem       lipgloss.Style
+	ChatListItemActive lipgloss.Style
+	ChatListTitle      lipgloss.Style
+	ChatListPreview    lipgloss.Style
+	ChatListTime       lipgloss.Style
+	ChatListUnread     lipgloss.Style
+	ChatListOnline     lipgloss.Style
 
-	// Composer styles
-	ComposerPane        lipgloss.Style
-	ComposerInput       lipgloss.Style
-	ComposerHint        lipgloss.Style
-	ComposerReplyBar    lipgloss.Style
+	// Chat view
+	ChatViewHeader     lipgloss.Style
+	MessageBubbleOwn   lipgloss.Style
+	MessageBubbleOther lipgloss.Style
+	MessageSender      lipgloss.Style
+	MessageTime        lipgloss.Style
+	MessageStatus      lipgloss.Style
+	MessageReply       lipgloss.Style
+	MessageSystem      lipgloss.Style
 
-	// Status bar styles
-	StatusBar           lipgloss.Style
-	StatusBarConnected  lipgloss.Style
-	StatusBarTyping     lipgloss.Style
+	// Composer
+	ComposerPane     lipgloss.Style
+	ComposerInput    lipgloss.Style
+	ComposerHint     lipgloss.Style
+	ComposerReplyBar lipgloss.Style
 
-	// Dialog styles
-	DialogOverlay       lipgloss.Style
-	DialogBox           lipgloss.Style
-	DialogTitle         lipgloss.Style
-	DialogButton        lipgloss.Style
-	DialogButtonActive  lipgloss.Style
+	// Status bar
+	StatusBar          lipgloss.Style
+	StatusBarConnected lipgloss.Style
+	StatusBarTyping    lipgloss.Style
 
-	// Auth screen styles
-	AuthPane            lipgloss.Style
-	AuthTitle           lipgloss.Style
-	AuthInput           lipgloss.Style
-	AuthLabel           lipgloss.Style
+	// Dialog
+	DialogBox          lipgloss.Style
+	DialogTitle        lipgloss.Style
+	DialogButton       lipgloss.Style
+	DialogButtonActive lipgloss.Style
 
-	// Search styles
-	SearchInput         lipgloss.Style
-	SearchResult        lipgloss.Style
-	SearchResultActive  lipgloss.Style
+	// Auth
+	AuthPane  lipgloss.Style
+	AuthTitle lipgloss.Style
+	AuthInput lipgloss.Style
+	AuthLabel lipgloss.Style
 
-	// Generic styles
-	Border              lipgloss.Style
-	FocusedBorder       lipgloss.Style
-	Separator           lipgloss.Style
-	Badge               lipgloss.Style
-	Spinner             lipgloss.Style
-	ProgressBar         lipgloss.Style
-	ProgressBarFill     lipgloss.Style
-	Tab                 lipgloss.Style
-	TabActive           lipgloss.Style
+	// Search
+	SearchInput        lipgloss.Style
+	SearchResult       lipgloss.Style
+	SearchResultActive lipgloss.Style
+
+	// Generic
+	Spinner        lipgloss.Style
+	Badge          lipgloss.Style
+	Tab            lipgloss.Style
+	TabActive      lipgloss.Style
+	ProgressBar    lipgloss.Style
+	ProgressBarFill lipgloss.Style
 }
 
-// DarkTheme returns the default dark theme.
 func DarkTheme() *Theme {
-	primary := lipgloss.Color("#7AA2F7")
-	secondary := lipgloss.Color("#9ECE6A")
-	accent := lipgloss.Color("#BB9AF7")
-	bg := lipgloss.Color("#1A1B26")
-	surface := lipgloss.Color("#24283B")
-	text := lipgloss.Color("#C0CAF5")
-	textMuted := lipgloss.Color("#565F89")
-	errColor := lipgloss.Color("#F7768E")
-	success := lipgloss.Color("#9ECE6A")
-	warning := lipgloss.Color("#E0AF68")
+	primary := lipgloss.Color("39")     // bright blue
+	secondary := lipgloss.Color("42")   // green
+	accent := lipgloss.Color("177")     // purple
+	bg := lipgloss.Color("234")         // dark gray
+	surface := lipgloss.Color("236")    // slightly lighter
+	text := lipgloss.Color("252")       // light gray
+	textMuted := lipgloss.Color("244")  // mid gray
+	errColor := lipgloss.Color("196")   // red
+	success := lipgloss.Color("42")     // green
+	warning := lipgloss.Color("214")    // orange
 
 	return &Theme{
 		Primary:    primary,
@@ -105,75 +100,56 @@ func DarkTheme() *Theme {
 		Success:    success,
 		Warning:    warning,
 
-		ChatListPane: lipgloss.NewStyle().
-			Background(bg).
-			Foreground(text).
-			BorderRight(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(textMuted),
+		PanelNormal: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("240")),
+
+		PanelFocused: lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(primary),
 
 		ChatListItem: lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1).
+			PaddingLeft(1).PaddingRight(1).
 			Foreground(text),
 
 		ChatListItemActive: lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1).
-			Background(surface).
-			Foreground(primary).
-			Bold(true),
+			PaddingLeft(1).PaddingRight(1).
+			Background(lipgloss.Color("237")).
+			Foreground(primary).Bold(true),
 
 		ChatListTitle: lipgloss.NewStyle().
-			Foreground(text).
-			Bold(true),
+			Foreground(text).Bold(true),
 
 		ChatListPreview: lipgloss.NewStyle().
 			Foreground(textMuted),
 
 		ChatListTime: lipgloss.NewStyle().
-			Foreground(textMuted).
-			Align(lipgloss.Right),
+			Foreground(textMuted),
 
 		ChatListUnread: lipgloss.NewStyle().
-			Background(primary).
-			Foreground(bg).
-			Bold(true).
-			PaddingLeft(1).
-			PaddingRight(1),
+			Background(primary).Foreground(lipgloss.Color("232")).
+			Bold(true).Padding(0, 1),
 
 		ChatListOnline: lipgloss.NewStyle().
 			Foreground(success),
 
-		ChatViewPane: lipgloss.NewStyle().
-			Background(bg).
-			Foreground(text),
-
 		ChatViewHeader: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
-			Bold(true).
-			PaddingLeft(2).
-			PaddingRight(2).
-			Height(1),
+			Foreground(text).Bold(true).
+			PaddingLeft(1).PaddingRight(1).
+			Background(lipgloss.Color("236")),
 
 		MessageBubbleOwn: lipgloss.NewStyle().
-			Background(lipgloss.Color("#2E3A59")).
 			Foreground(text).
-			PaddingLeft(1).
-			PaddingRight(1).
-			MarginLeft(4),
+			Background(lipgloss.Color("24")).
+			Padding(0, 1),
 
 		MessageBubbleOther: lipgloss.NewStyle().
-			Background(surface).
 			Foreground(text).
-			PaddingLeft(1).
-			PaddingRight(1).
-			MarginRight(4),
+			Background(lipgloss.Color("237")).
+			Padding(0, 1),
 
 		MessageSender: lipgloss.NewStyle().
-			Foreground(accent).
-			Bold(true),
+			Foreground(accent).Bold(true),
 
 		MessageTime: lipgloss.NewStyle().
 			Foreground(textMuted),
@@ -182,194 +158,117 @@ func DarkTheme() *Theme {
 			Foreground(secondary),
 
 		MessageReply: lipgloss.NewStyle().
-			Foreground(primary).
+			Foreground(primary).Italic(true).
+			PaddingLeft(1).
 			BorderLeft(true).
 			BorderStyle(lipgloss.ThickBorder()).
-			BorderForeground(primary).
-			PaddingLeft(1),
+			BorderForeground(primary),
 
 		MessageSystem: lipgloss.NewStyle().
-			Foreground(textMuted).
-			Italic(true).
-			Align(lipgloss.Center),
+			Foreground(textMuted).Italic(true),
 
-		ComposerPane: lipgloss.NewStyle().
-			Background(surface).
-			BorderTop(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(textMuted),
+		ComposerPane: lipgloss.NewStyle(),
 
 		ComposerInput: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
-			PaddingLeft(1),
+			Foreground(text).PaddingLeft(1),
 
 		ComposerHint: lipgloss.NewStyle().
-			Foreground(textMuted).
-			Italic(true),
+			Foreground(textMuted).Italic(true).PaddingLeft(1),
 
 		ComposerReplyBar: lipgloss.NewStyle().
-			Foreground(primary).
-			Background(surface).
-			PaddingLeft(1).
+			Foreground(primary).PaddingLeft(1).
 			BorderLeft(true).
 			BorderStyle(lipgloss.ThickBorder()).
 			BorderForeground(primary),
 
 		StatusBar: lipgloss.NewStyle().
-			Background(lipgloss.Color("#16161E")).
+			Background(lipgloss.Color("235")).
 			Foreground(textMuted).
-			Height(1).
-			PaddingLeft(1).
-			PaddingRight(1),
+			PaddingLeft(1).PaddingRight(1),
 
 		StatusBarConnected: lipgloss.NewStyle().
-			Foreground(success),
+			Foreground(success).Bold(true),
 
 		StatusBarTyping: lipgloss.NewStyle().
-			Foreground(warning).
-			Italic(true),
-
-		DialogOverlay: lipgloss.NewStyle().
-			Background(lipgloss.Color("#00000088")),
+			Foreground(warning).Italic(true),
 
 		DialogBox: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primary).
-			Padding(1, 2),
+			Padding(1, 2).
+			Background(lipgloss.Color("236")),
 
 		DialogTitle: lipgloss.NewStyle().
-			Foreground(primary).
-			Bold(true).
-			MarginBottom(1),
+			Foreground(primary).Bold(true),
 
 		DialogButton: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
-			Padding(0, 2),
+			Foreground(text).Padding(0, 2),
 
 		DialogButtonActive: lipgloss.NewStyle().
 			Background(primary).
-			Foreground(bg).
-			Bold(true).
-			Padding(0, 2),
+			Foreground(lipgloss.Color("232")).
+			Bold(true).Padding(0, 2),
 
 		AuthPane: lipgloss.NewStyle().
-			Background(bg).
-			Foreground(text).
-			Align(lipgloss.Center),
+			Foreground(text),
 
 		AuthTitle: lipgloss.NewStyle().
-			Foreground(primary).
-			Bold(true).
-			MarginBottom(2),
+			Foreground(primary).Bold(true),
 
 		AuthInput: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primary).
-			Padding(0, 1).
-			Width(40),
+			Foreground(text).
+			Padding(0, 1).Width(40),
 
 		AuthLabel: lipgloss.NewStyle().
-			Foreground(text).
-			MarginBottom(1),
+			Foreground(text),
 
 		SearchInput: lipgloss.NewStyle().
-			Background(surface).
-			Foreground(text).
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(primary).
-			PaddingLeft(1),
+			Foreground(text).PaddingLeft(1),
 
 		SearchResult: lipgloss.NewStyle().
-			Foreground(text).
-			PaddingLeft(2),
+			Foreground(text).PaddingLeft(2),
 
 		SearchResultActive: lipgloss.NewStyle().
-			Foreground(primary).
-			Background(surface).
-			Bold(true).
+			Foreground(primary).Bold(true).
+			Background(lipgloss.Color("237")).
 			PaddingLeft(2),
 
-		Border: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(textMuted),
-
-		FocusedBorder: lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder()).
-			BorderForeground(primary),
-
-		Separator: lipgloss.NewStyle().
-			Foreground(textMuted),
+		Spinner: lipgloss.NewStyle().Foreground(primary),
 
 		Badge: lipgloss.NewStyle().
-			Background(primary).
-			Foreground(bg).
-			Bold(true).
-			PaddingLeft(1).
-			PaddingRight(1),
-
-		Spinner: lipgloss.NewStyle().
-			Foreground(primary),
-
-		ProgressBar: lipgloss.NewStyle().
-			Foreground(textMuted),
-
-		ProgressBarFill: lipgloss.NewStyle().
-			Foreground(primary),
+			Background(primary).Foreground(lipgloss.Color("232")).
+			Bold(true).Padding(0, 1),
 
 		Tab: lipgloss.NewStyle().
-			Foreground(textMuted).
-			Padding(0, 2),
+			Foreground(textMuted).Padding(0, 2),
 
 		TabActive: lipgloss.NewStyle().
-			Foreground(primary).
-			Bold(true).
-			Padding(0, 2).
-			BorderBottom(true).
-			BorderStyle(lipgloss.NormalBorder()).
-			BorderForeground(primary),
+			Foreground(primary).Bold(true).Padding(0, 2).
+			Underline(true),
+
+		ProgressBar: lipgloss.NewStyle().Foreground(textMuted),
+
+		ProgressBarFill: lipgloss.NewStyle().Foreground(primary),
 	}
 }
 
-// LightTheme returns a light color theme.
 func LightTheme() *Theme {
-	primary := lipgloss.Color("#2E59A8")
-	secondary := lipgloss.Color("#587B2E")
-	accent := lipgloss.Color("#7B4BAA")
-	bg := lipgloss.Color("#FFFFFF")
-	surface := lipgloss.Color("#F0F0F0")
-	text := lipgloss.Color("#1A1A1A")
-	textMuted := lipgloss.Color("#888888")
-	errColor := lipgloss.Color("#CC3333")
-	success := lipgloss.Color("#338833")
-	warning := lipgloss.Color("#CC8833")
-
 	t := DarkTheme()
-	t.Primary = primary
-	t.Secondary = secondary
-	t.Accent = accent
-	t.Background = bg
-	t.Surface = surface
-	t.Text = text
-	t.TextMuted = textMuted
-	t.Error = errColor
-	t.Success = success
-	t.Warning = warning
-
+	t.Primary = lipgloss.Color("33")
+	t.Background = lipgloss.Color("231")
+	t.Surface = lipgloss.Color("254")
+	t.Text = lipgloss.Color("234")
+	t.TextMuted = lipgloss.Color("245")
 	return t
 }
 
-// ForName returns the appropriate theme for the given name.
 func ForName(name string) *Theme {
-	switch name {
-	case "light":
+	if name == "light" {
 		return LightTheme()
-	default:
-		return DarkTheme()
 	}
+	return DarkTheme()
 }

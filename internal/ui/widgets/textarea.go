@@ -4,10 +4,9 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 )
 
-// TextArea is a simple multi-line text input widget.
 type TextArea struct {
 	Value       string
 	Cursor      int
@@ -18,14 +17,12 @@ type TextArea struct {
 	Style       lipgloss.Style
 }
 
-// NewTextArea creates a new text area widget.
 func NewTextArea() TextArea {
 	return TextArea{
-		Height: 3,
+		Height: 1,
 	}
 }
 
-// Update handles key events for text input.
 func (t *TextArea) Update(msg tea.Msg) (submitted bool) {
 	if !t.Focused {
 		return false
@@ -33,7 +30,8 @@ func (t *TextArea) Update(msg tea.Msg) (submitted bool) {
 
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		switch msg.String() {
+		key := msg.String()
+		switch key {
 		case "enter":
 			return true
 		case "backspace":
@@ -64,30 +62,64 @@ func (t *TextArea) Update(msg tea.Msg) (submitted bool) {
 			t.Cursor = 0
 		case "ctrl+k":
 			t.Value = string([]rune(t.Value)[:t.Cursor])
+		case "ctrl+w":
+			// Delete word backwards
+			runes := []rune(t.Value)
+			i := t.Cursor - 1
+			for i >= 0 && runes[i] == ' ' {
+				i--
+			}
+			for i >= 0 && runes[i] != ' ' {
+				i--
+			}
+			t.Value = string(runes[:i+1]) + string(runes[t.Cursor:])
+			t.Cursor = i + 1
 		default:
-			// Insert character.
-			if len(msg.String()) == 1 || msg.String() == " " {
+			// Map bubbletea v2 key names to actual characters
+			text := key
+			switch key {
+			case "space":
+				text = " "
+			case "tab", "escape", "up", "down", "pgup", "pgdown",
+				"shift+tab", "f1", "f2", "f3", "f4", "f5",
+				"f6", "f7", "f8", "f9", "f10", "f11", "f12":
+				return false
+			}
+			if strings.HasPrefix(text, "ctrl+") || strings.HasPrefix(text, "alt+") || strings.HasPrefix(text, "shift+") {
+				return false
+			}
+			if len(text) >= 1 {
 				runes := []rune(t.Value)
-				char := []rune(msg.String())
-				newRunes := make([]rune, 0, len(runes)+len(char))
+				insert := []rune(text)
+				newRunes := make([]rune, 0, len(runes)+len(insert))
 				newRunes = append(newRunes, runes[:t.Cursor]...)
-				newRunes = append(newRunes, char...)
+				newRunes = append(newRunes, insert...)
 				newRunes = append(newRunes, runes[t.Cursor:]...)
 				t.Value = string(newRunes)
-				t.Cursor += len(char)
+				t.Cursor += len(insert)
 			}
 		}
+
+	case tea.PasteMsg:
+		// Handle bracketed paste
+		text := msg.Content
+		runes := []rune(t.Value)
+		insert := []rune(text)
+		newRunes := make([]rune, 0, len(runes)+len(insert))
+		newRunes = append(newRunes, runes[:t.Cursor]...)
+		newRunes = append(newRunes, insert...)
+		newRunes = append(newRunes, runes[t.Cursor:]...)
+		t.Value = string(newRunes)
+		t.Cursor += len(insert)
 	}
 	return false
 }
 
-// Reset clears the text area.
 func (t *TextArea) Reset() {
 	t.Value = ""
 	t.Cursor = 0
 }
 
-// View renders the text area.
 func (t *TextArea) View() string {
 	content := t.Value
 	if content == "" && t.Placeholder != "" && !t.Focused {
@@ -95,21 +127,14 @@ func (t *TextArea) View() string {
 	}
 
 	if t.Focused && content == t.Value {
-		// Show cursor.
 		runes := []rune(t.Value)
 		before := string(runes[:t.Cursor])
-		cursor := "▏"
 		after := ""
 		if t.Cursor < len(runes) {
 			after = string(runes[t.Cursor:])
 		}
-		content = before + cursor + after
+		content = before + "█" + after
 	}
 
-	lines := strings.Split(content, "\n")
-	if len(lines) > t.Height {
-		lines = lines[len(lines)-t.Height:]
-	}
-
-	return t.Style.Width(t.Width).Height(t.Height).Render(strings.Join(lines, "\n"))
+	return t.Style.Width(t.Width).Render(content)
 }

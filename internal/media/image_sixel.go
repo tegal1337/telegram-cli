@@ -36,7 +36,7 @@ func renderSixel(img image.Image) (string, error) {
 
 	// Encode image in 6-pixel-high bands.
 	for band := 0; band < h; band += 6 {
-		for colorIdx, pc := range palette {
+		for colorIdx, _ := range palette {
 			b.WriteString(fmt.Sprintf("#%d", colorIdx))
 
 			for x := 0; x < w; x++ {

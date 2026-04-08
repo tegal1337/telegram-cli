@@ -1,19 +1,15 @@
 package telegram
 
 import (
-	"log"
-
 	tea "charm.land/bubbletea/v2"
 	"github.com/zelenin/go-tdlib/client"
 )
 
-// Listener bridges TDLib's async updates into bubbletea's event loop.
 type Listener struct {
 	tdClient *client.Client
 	program  *tea.Program
 }
 
-// NewListener creates a listener that converts TDLib updates to tea.Msg.
 func NewListener(tdClient *client.Client, program *tea.Program) *Listener {
 	return &Listener{
 		tdClient: tdClient,
@@ -21,9 +17,6 @@ func NewListener(tdClient *client.Client, program *tea.Program) *Listener {
 	}
 }
 
-// Start begins listening for TDLib updates in a goroutine.
-// It converts each update type to a corresponding tea.Msg and sends it
-// into the bubbletea program via p.Send().
 func (l *Listener) Start() {
 	listener := l.tdClient.GetListener()
 
@@ -49,51 +42,53 @@ func (l *Listener) convertUpdate(update client.Type) tea.Msg {
 
 	case *client.UpdateMessageEdited:
 		return MessageEditedMsg{
-			ChatID:    u.ChatID,
-			MessageID: u.MessageID,
+			ChatId:    u.ChatId,
+			MessageId: u.MessageId,
 		}
 
 	case *client.UpdateDeleteMessages:
 		if !u.FromCache {
 			return MessageDeletedMsg{
-				ChatID:     u.ChatID,
-				MessageIDs: u.MessageIDs,
+				ChatId:     u.ChatId,
+				MessageIds: u.MessageIds,
 			}
 		}
 
+	case *client.UpdateNewChat:
+		return ChatUpdateMsg{Chat: u.Chat}
+
 	case *client.UpdateChatTitle:
-		return ChatUpdateMsg{Chat: &client.Chat{ID: u.ChatID, Title: u.Title}}
+		return ChatUpdateMsg{Chat: &client.Chat{Id: u.ChatId, Title: u.Title}}
 
 	case *client.UpdateChatPosition:
-		// Handled via ChatPositionMsg
 		return ChatPositionMsg{
-			ChatID:    u.ChatID,
+			ChatId:    u.ChatId,
 			Positions: []*client.ChatPosition{u.Position},
 		}
 
 	case *client.UpdateChatLastMessage:
 		return ChatLastMessageMsg{
-			ChatID:      u.ChatID,
+			ChatId:      u.ChatId,
 			LastMessage: u.LastMessage,
 			Positions:   u.Positions,
 		}
 
 	case *client.UpdateChatReadInbox:
 		return ChatReadInboxMsg{
-			ChatID:                 u.ChatID,
-			LastReadInboxMessageID: u.LastReadInboxMessageID,
+			ChatId:                 u.ChatId,
+			LastReadInboxMessageId: u.LastReadInboxMessageId,
 			UnreadCount:            u.UnreadCount,
 		}
 
 	case *client.UpdateChatReadOutbox:
 		return ChatReadOutboxMsg{
-			ChatID:                  u.ChatID,
-			LastReadOutboxMessageID: u.LastReadOutboxMessageID,
+			ChatId:                  u.ChatId,
+			LastReadOutboxMessageId: u.LastReadOutboxMessageId,
 		}
 
 	case *client.UpdateUserStatus:
 		return UserStatusMsg{
-			UserID: u.UserID,
+			UserId: u.UserId,
 			Status: u.Status,
 		}
 
@@ -105,8 +100,8 @@ func (l *Listener) convertUpdate(update client.Type) tea.Msg {
 
 	case *client.UpdateChatAction:
 		return ChatActionMsg{
-			ChatID: u.ChatID,
-			UserID: extractSenderUserID(u.SenderId),
+			ChatId: u.ChatId,
+			UserId: extractSenderUserId(u.SenderId),
 			Action: u.Action,
 		}
 
@@ -122,13 +117,13 @@ func (l *Listener) convertUpdate(update client.Type) tea.Msg {
 	case *client.UpdateMessageSendSucceeded:
 		return MessageSendSucceededMsg{
 			Message:      u.Message,
-			OldMessageID: u.OldMessageID,
+			OldMessageId: u.OldMessageId,
 		}
 
 	case *client.UpdateMessageSendFailed:
 		return MessageSendFailedMsg{
 			Message:      u.Message,
-			OldMessageID: u.OldMessageID,
+			OldMessageId: u.OldMessageId,
 			ErrorCode:    u.Error.Code,
 			ErrorMessage: u.Error.Message,
 		}
@@ -141,21 +136,53 @@ func (l *Listener) convertUpdate(update client.Type) tea.Msg {
 
 	case *client.UpdateNotificationGroup:
 		return NotificationMsg{
-			GroupID:       u.NotificationGroupID,
+			GroupId:       u.NotificationGroupId,
 			Notifications: u.AddedNotifications,
 		}
 
-	default:
-		log.Printf("unhandled update: %T", update)
+	case *client.UpdateChatAddedToList,
+		*client.UpdateChatRemovedFromList,
+		*client.UpdateUserFullInfo,
+		*client.UpdateSupergroupFullInfo,
+		*client.UpdateBasicGroupFullInfo,
+		*client.UpdateChatActionBar,
+		*client.UpdateChatHasScheduledMessages,
+		*client.UpdateChatIsMarkedAsUnread,
+		*client.UpdateChatNotificationSettings,
+		*client.UpdateChatUnreadMentionCount,
+		*client.UpdateChatUnreadReactionCount,
+		*client.UpdateChatDraftMessage,
+		*client.UpdateChatPhoto,
+		*client.UpdateChatPermissions,
+		*client.UpdateChatTheme,
+		*client.UpdateChatAvailableReactions,
+		*client.UpdateOption,
+		*client.UpdateAnimationSearchParameters,
+		*client.UpdateScopeNotificationSettings,
+		*client.UpdateHavePendingNotifications,
+		*client.UpdateChatFolders,
+		*client.UpdateChatOnlineMemberCount,
+		*client.UpdateAttachmentMenuBots,
+		*client.UpdateActiveEmojiReactions,
+		*client.UpdateDefaultReactionType,
+		*client.UpdateUnreadChatCount,
+		*client.UpdateStoryStealthMode,
+		*client.UpdateChatBlockList,
+		*client.UpdateAccentColors,
+		*client.UpdateProfileAccentColors,
+		*client.UpdateSavedMessagesTags,
+		*client.UpdateOwnedStarCount,
+		*client.UpdateChatPendingJoinRequests:
+	
 	}
 
 	return nil
 }
 
-func extractSenderUserID(sender client.MessageSender) int64 {
+func extractSenderUserId(sender client.MessageSender) int64 {
 	switch s := sender.(type) {
 	case *client.MessageSenderUser:
-		return s.UserID
+		return s.UserId
 	default:
 		return 0
 	}

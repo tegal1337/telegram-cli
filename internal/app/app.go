@@ -1,11 +1,11 @@
 package app
 
 import (
-	"context"
 	"fmt"
+	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/config"
 	"github.com/tegal1337/telegram-cli/internal/notification"
 	"github.com/tegal1337/telegram-cli/internal/store"
@@ -24,9 +24,7 @@ import (
 	"github.com/zelenin/go-tdlib/client"
 )
 
-// Model is the root bubbletea model that composes all sub-components.
 type Model struct {
-	// Sub-models
 	auth      auth.Model
 	chatList  chatlist.Model
 	chatView  chatview.Model
@@ -37,39 +35,23 @@ type Model struct {
 	statusBar statusbar.Model
 	dialog    *dialog.Model
 
-	// State
-	screen    ScreenState
-	focus     FocusPanel
-	layout    layout.Layout
-
-	// Dependencies
-	tg        *telegram.Client
-	store     *store.Store
-	config    *config.Config
-	theme     *theme.Theme
-	notifier  *notification.Notifier
-	sound     *notification.SoundPlayer
+	screen     ScreenState
+	focus      FocusPanel
+	layout     layout.Layout
+	tg         *telegram.Client
+	store      *store.Store
+	config     *config.Config
+	theme      *theme.Theme
+	notifier   *notification.Notifier
+	sound      *notification.SoundPlayer
 	authorizer *telegram.TUIAuthorizer
-
-	// Dimensions
-	width  int
-	height int
-
-	// User info
-	myUserID int64
+	width      int
+	height     int
+	myUserId   int64
 }
 
-// New creates the root application model.
-func New(
-	cfg *config.Config,
-	tg *telegram.Client,
-	s *store.Store,
-	authorizer *telegram.TUIAuthorizer,
-) Model {
+func New(cfg *config.Config, tg *telegram.Client, s *store.Store, authorizer *telegram.TUIAuthorizer) Model {
 	th := theme.ForName(cfg.UI.Theme)
-	notifier := notification.NewNotifier(cfg.Notifications.Enabled, cfg.Notifications.ShowPreview)
-	sound := notification.NewSoundPlayer(cfg.Notifications.Sound)
-
 	return Model{
 		auth:       auth.New(th, authorizer),
 		chatList:   chatlist.New(s, tg, th),
@@ -79,26 +61,20 @@ func New(
 		search:     search.New(s, tg, th),
 		groupInfo:  groupinfo.New(s, tg, th),
 		statusBar:  statusbar.New(s, th),
-
-		screen:     ScreenAuth,
+		screen:     ScreenLoading,
 		focus:      PanelChatList,
-
 		tg:         tg,
 		store:      s,
 		config:     cfg,
 		theme:      th,
-		notifier:   notifier,
-		sound:      sound,
+		notifier:   notification.NewNotifier(cfg.Notifications.Enabled, cfg.Notifications.ShowPreview),
+		sound:      notification.NewSoundPlayer(cfg.Notifications.Sound),
 		authorizer: authorizer,
 	}
 }
 
-// Init returns the initial command.
-func (m Model) Init() tea.Cmd {
-	return nil
-}
+func (m Model) Init() tea.Cmd { return nil }
 
-// Update handles all incoming messages.
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -110,59 +86,122 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyPressMsg:
-		// Global keybindings.
-		switch msg.String() {
-		case "ctrl+c":
+		key := msg.String()
+
+		// Quit
+		if key == "ctrl+c" || key == "ctrl+q" {
 			return m, tea.Quit
-		case "ctrl+1":
-			m.setFocus(PanelChatList)
-			return m, nil
-		case "ctrl+2":
-			m.setFocus(PanelChatView)
-			return m, nil
-		case "ctrl+3":
-			m.setFocus(PanelComposer)
-			return m, nil
-		case "/":
-			if m.screen == ScreenMain && m.focus != PanelComposer {
+		}
+
+		if m.screen == ScreenMain {
+			// Tab / Shift+Tab cycle panels
+			if key == "tab" && m.focus != PanelSearch && m.focus != PanelComposer {
+				switch m.focus {
+				case PanelChatList:
+					m.setFocus(PanelChatView)
+				case PanelChatView:
+					m.setFocus(PanelComposer)
+				default:
+					m.setFocus(PanelChatList)
+				}
+				return m, nil
+			}
+			if key == "shift+tab" && m.focus != PanelSearch {
+				switch m.focus {
+				case PanelComposer:
+					m.setFocus(PanelChatView)
+				case PanelChatView:
+					m.setFocus(PanelChatList)
+				default:
+					m.setFocus(PanelComposer)
+				}
+				return m, nil
+			}
+
+			// Escape: close overlay or go back
+			if key == "escape" {
+				if m.search.IsVisible() {
+					m.search.SetVisible(false)
+					m.setFocus(PanelChatList)
+					return m, nil
+				}
+				if m.contacts.IsVisible() {
+					m.contacts.SetVisible(false)
+					m.setFocus(PanelChatList)
+					return m, nil
+				}
+				if m.focus == PanelComposer {
+					m.setFocus(PanelChatView)
+					return m, nil
+				}
+				if m.focus != PanelChatList {
+					m.setFocus(PanelChatList)
+					return m, nil
+				}
+			}
+
+			// Alt+1/2/3 for panel focus (works in all terminals)
+			if key == "alt+1" || key == "F1" {
+				m.setFocus(PanelChatList)
+				return m, nil
+			}
+			if key == "alt+2" || key == "F2" {
+				m.setFocus(PanelChatView)
+				return m, nil
+			}
+			if key == "alt+3" || key == "F3" {
+				m.setFocus(PanelComposer)
+				return m, nil
+			}
+
+			// Alt+j / Alt+k: next/prev chat (works when not typing)
+			if key == "alt+j" && m.focus != PanelComposer {
+				// next chat handled by chatlist
+			}
+			if key == "alt+k" && m.focus != PanelComposer {
+				// prev chat handled by chatlist
+			}
+
+			// Search (not when typing in composer)
+			if key == "/" && m.focus != PanelComposer {
 				m.search.SetVisible(true)
 				m.setFocus(PanelSearch)
 				return m, nil
 			}
-		case "ctrl+k":
-			if m.screen == ScreenMain {
+
+			// Contacts toggle
+			if key == "alt+c" {
 				m.contacts.SetVisible(!m.contacts.IsVisible())
 				if m.contacts.IsVisible() {
 					m.setFocus(PanelContacts)
-					cmd := m.contacts.LoadContacts()
-					cmds = append(cmds, cmd)
-				} else {
-					m.setFocus(PanelChatList)
+					return m, m.contacts.LoadContacts()
 				}
-				return m, tea.Batch(cmds...)
+				m.setFocus(PanelChatList)
+				return m, nil
+			}
+
+			// Quick compose: just start typing from chatview
+			if key == "i" && m.focus == PanelChatView {
+				m.setFocus(PanelComposer)
+				return m, nil
 			}
 		}
 
-	// Auth state from TDLib.
-	case telegram.AuthStateMsg:
-		return m.handleAuthState(msg)
+	case AuthStateChangedMsg:
+		return m.handleAuthStateChanged(msg)
 
-	// Authentication complete.
 	case AuthenticatedMsg:
 		m.screen = ScreenMain
-		m.myUserID = msg.UserID
-		m.chatView.SetMyUserID(msg.UserID)
+		m.myUserId = msg.UserId
+		m.chatView.SetMyUserId(msg.UserId)
 		m.statusBar.SetUserName(fmt.Sprintf("%s %s", msg.FirstName, msg.LastName))
 		m.setFocus(PanelChatList)
 		m.updateLayout()
-		cmd := m.chatList.Init()
-		return m, cmd
+		return m, m.chatList.Init()
 
-	// New message notification.
 	case telegram.NewMessageMsg:
-		if msg.Message.ChatID != m.chatList.ActiveChatID() {
-			// Notify for messages in non-active chats.
-			entry, ok := m.store.Chats.Get(msg.Message.ChatID)
+		if msg.Message.ChatId != m.chatList.ActiveChatId() {
+			entry, ok := m.store.Chats.Get(msg.Message.ChatId)
 			title := "New Message"
 			if ok && entry.Chat != nil {
 				title = entry.Chat.Title
@@ -175,81 +214,83 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.sound.Play()
 		}
 
-	// Chat selected from chat list.
 	case chatlist.ChatSelectedMsg:
-		entry, ok := m.store.Chats.Get(msg.ChatID)
+		entry, ok := m.store.Chats.Get(msg.ChatId)
 		title := ""
 		if ok && entry.Chat != nil {
 			title = entry.Chat.Title
 		}
-		cmd := m.chatView.OpenChat(msg.ChatID, title)
-		m.composer.SetChatID(msg.ChatID)
-		m.statusBar.SetActiveChatID(msg.ChatID)
+		cmd := m.chatView.OpenChat(msg.ChatId, title)
+		m.composer.SetChatId(msg.ChatId)
+		m.statusBar.SetActiveChatId(msg.ChatId)
 		m.setFocus(PanelChatView)
 		cmds = append(cmds, cmd)
 
-	// Contact selected.
 	case contacts.ContactSelectedMsg:
 		m.contacts.SetVisible(false)
-		cmd := m.openPrivateChat(msg.UserID)
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.openPrivateChat(msg.UserId))
 
-	// Search result selected.
 	case search.SearchResultMsg:
-		entry, ok := m.store.Chats.Get(msg.ChatID)
+		entry, ok := m.store.Chats.Get(msg.ChatId)
 		title := ""
 		if ok && entry.Chat != nil {
 			title = entry.Chat.Title
 		}
-		cmd := m.chatView.OpenChat(msg.ChatID, title)
-		m.composer.SetChatID(msg.ChatID)
+		cmd := m.chatView.OpenChat(msg.ChatId, title)
+		m.composer.SetChatId(msg.ChatId)
 		m.setFocus(PanelChatView)
 		cmds = append(cmds, cmd)
 
-	// Message submitted from composer.
 	case composer.MessageSubmittedMsg:
-		cmd := m.handleMessageSubmit(msg)
-		cmds = append(cmds, cmd)
+		cmds = append(cmds, m.handleMessageSubmit(msg))
 
-	// Message actions (reply, edit, delete, forward).
 	case chatview.MessageActionMsg:
 		return m.handleMessageAction(msg)
 
-	// Dialog results.
 	case dialog.DialogResultMsg:
 		m.dialog = nil
-		if msg.ID == "delete" && msg.Confirmed {
-			// Delete confirmed — handled by the stored command.
-		}
 	}
 
-	// Dispatch to all relevant sub-models.
+	// Dispatch to sub-models
 	if m.screen == ScreenAuth {
 		var cmd tea.Cmd
 		m.auth, cmd = m.auth.Update(msg)
 		cmds = append(cmds, cmd)
 	} else {
-		// Dispatch to sub-models.
 		var cmd tea.Cmd
 
-		m.chatList, cmd = m.chatList.Update(msg)
-		cmds = append(cmds, cmd)
+		// Key events only go to the focused panel.
+		// Non-key events (telegram updates, spinner ticks, etc.) go to all.
+		_, isKey := msg.(tea.KeyPressMsg)
+		_, isPaste := msg.(tea.PasteMsg)
+		isInputEvent := isKey || isPaste
 
-		m.chatView, cmd = m.chatView.Update(msg)
-		cmds = append(cmds, cmd)
+		if !isInputEvent || m.focus == PanelChatList {
+			m.chatList, cmd = m.chatList.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if !isInputEvent || m.focus == PanelChatView {
+			m.chatView, cmd = m.chatView.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if !isInputEvent || m.focus == PanelComposer {
+			m.composer, cmd = m.composer.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if !isInputEvent || m.focus == PanelContacts {
+			m.contacts, cmd = m.contacts.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if !isInputEvent || m.focus == PanelSearch {
+			m.search, cmd = m.search.Update(msg)
+			cmds = append(cmds, cmd)
+		}
+		if !isInputEvent || m.focus == PanelGroupInfo {
+			m.groupInfo, cmd = m.groupInfo.Update(msg)
+			cmds = append(cmds, cmd)
+		}
 
-		m.composer, cmd = m.composer.Update(msg)
-		cmds = append(cmds, cmd)
-
-		m.contacts, cmd = m.contacts.Update(msg)
-		cmds = append(cmds, cmd)
-
-		m.search, cmd = m.search.Update(msg)
-		cmds = append(cmds, cmd)
-
-		m.groupInfo, cmd = m.groupInfo.Update(msg)
-		cmds = append(cmds, cmd)
-
+		// Status bar always gets all events (non-interactive).
 		m.statusBar, cmd = m.statusBar.Update(msg)
 		cmds = append(cmds, cmd)
 
@@ -264,61 +305,43 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m Model) handleAuthState(msg telegram.AuthStateMsg) (tea.Model, tea.Cmd) {
-	switch msg.State.(type) {
-	case *client.AuthorizationStateWaitPhoneNumber:
+func (m Model) handleAuthStateChanged(msg AuthStateChangedMsg) (tea.Model, tea.Cmd) {
+	switch telegram.AuthState(msg.State) {
+	case telegram.AuthStateWaitPhone:
+		m.screen = ScreenAuth
 		m.auth.SetStep(auth.StepPhone)
-	case *client.AuthorizationStateWaitCode:
+	case telegram.AuthStateWaitCode:
+		m.screen = ScreenAuth
 		m.auth.SetStep(auth.StepCode)
-	case *client.AuthorizationStateWaitPassword:
+	case telegram.AuthStateWaitPassword:
+		m.screen = ScreenAuth
 		m.auth.SetStep(auth.StepPassword)
-	case *client.AuthorizationStateReady:
+	case telegram.AuthStateReady:
+		m.screen = ScreenAuth
 		m.auth.SetStep(auth.StepDone)
-		return m, m.fetchMeCmd()
 	}
 	return m, nil
 }
 
-func (m *Model) fetchMeCmd() tea.Cmd {
-	return func() tea.Msg {
-		me, err := m.tg.GetMe(context.Background())
-		if err != nil {
-			return ErrorMsg{Err: err}
-		}
-		return AuthenticatedMsg{
-			UserID:    me.ID,
-			FirstName: me.FirstName,
-			LastName:  me.LastName,
-		}
-	}
-}
-
 func (m *Model) openPrivateChat(userID int64) tea.Cmd {
 	return func() tea.Msg {
-		chat, err := m.tg.CreatePrivateChat(context.Background(), userID)
+		chat, err := m.tg.CreatePrivateChat(userID)
 		if err != nil {
 			return ErrorMsg{Err: err}
 		}
-		return chatlist.ChatSelectedMsg{ChatID: chat.ID}
+		return chatlist.ChatSelectedMsg{ChatId: chat.Id}
 	}
 }
 
 func (m Model) handleMessageSubmit(msg composer.MessageSubmittedMsg) tea.Cmd {
-	if msg.EditMessageID != 0 {
+	if msg.EditMessageId != 0 {
 		return func() tea.Msg {
-			_, err := m.tg.EditTextMessage(context.Background(), msg.ChatID, msg.EditMessageID, msg.Text)
-			if err != nil {
-				return ErrorMsg{Err: err}
-			}
+			m.tg.EditTextMessage(msg.ChatId, msg.EditMessageId, msg.Text)
 			return nil
 		}
 	}
-
 	return func() tea.Msg {
-		_, err := m.tg.SendTextMessage(context.Background(), msg.ChatID, msg.Text, msg.ReplyToID)
-		if err != nil {
-			return ErrorMsg{Err: err}
-		}
+		m.tg.SendTextMessage(msg.ChatId, msg.Text, msg.ReplyToId)
 		return nil
 	}
 }
@@ -326,11 +349,10 @@ func (m Model) handleMessageSubmit(msg composer.MessageSubmittedMsg) tea.Cmd {
 func (m Model) handleMessageAction(msg chatview.MessageActionMsg) (tea.Model, tea.Cmd) {
 	switch msg.Action {
 	case "reply":
-		// Get message preview for reply bar.
-		msgs := m.store.Messages.Get(msg.ChatID)
+		msgs := m.store.Messages.Get(msg.ChatId)
 		preview := ""
 		for _, message := range msgs {
-			if message.ID == msg.MessageID {
+			if message.Id == msg.MessageId {
 				if text, ok := message.Content.(*client.MessageText); ok {
 					preview = text.Text.Text
 				} else {
@@ -339,29 +361,23 @@ func (m Model) handleMessageAction(msg chatview.MessageActionMsg) (tea.Model, te
 				break
 			}
 		}
-		m.composer.EnterReplyMode(msg.MessageID, preview)
+		m.composer.EnterReplyMode(msg.MessageId, preview)
 		m.setFocus(PanelComposer)
-
 	case "edit":
-		msgs := m.store.Messages.Get(msg.ChatID)
+		msgs := m.store.Messages.Get(msg.ChatId)
 		for _, message := range msgs {
-			if message.ID == msg.MessageID {
+			if message.Id == msg.MessageId {
 				if text, ok := message.Content.(*client.MessageText); ok {
-					m.composer.EnterEditMode(msg.MessageID, text.Text.Text)
+					m.composer.EnterEditMode(msg.MessageId, text.Text.Text)
 					m.setFocus(PanelComposer)
 				}
 				break
 			}
 		}
-
 	case "delete":
-		d := dialog.NewConfirm(m.theme, "delete", "Delete Message", "Are you sure you want to delete this message?")
+		d := dialog.NewConfirm(m.theme, "delete", "Delete Message", "Are you sure?")
 		m.dialog = &d
-
-	case "forward":
-		// TODO: show chat picker for forwarding.
 	}
-
 	return m, nil
 }
 
@@ -377,46 +393,67 @@ func (m *Model) setFocus(panel FocusPanel) {
 func (m *Model) updateLayout() {
 	l := layout.Compute(m.width, m.height, m.config.UI.ChatListWidth)
 	m.layout = l
-
 	m.auth.SetSize(m.width, m.height)
-	m.chatList.SetSize(l.ChatListWidth, l.ChatListHeight)
-	m.chatView.SetSize(l.ChatViewWidth, l.ChatViewHeight)
-	m.composer.SetSize(l.ComposerWidth, l.ComposerHeight)
-	m.contacts.SetSize(l.ChatListWidth, l.ChatListHeight)
+	// Inner dimensions (subtract 2 for border)
+	m.chatList.SetSize(l.ChatListWidth-2, l.ChatListHeight-2)
+	m.chatView.SetSize(l.ChatViewWidth-2, l.ChatViewHeight-2)
+	m.composer.SetSize(l.ComposerWidth-2, l.ComposerHeight-2)
+	m.contacts.SetSize(l.ChatListWidth-2, l.ChatListHeight-2)
 	m.search.SetSize(m.width/2, m.height/2)
-	m.groupInfo.SetSize(l.ChatListWidth, l.ChatListHeight)
+	m.groupInfo.SetSize(l.ChatListWidth-2, l.ChatListHeight-2)
 	m.statusBar.SetSize(l.StatusBarWidth)
 }
 
-// View renders the entire UI.
 func (m Model) View() tea.View {
 	var content string
 
 	switch m.screen {
 	case ScreenAuth:
 		content = m.auth.View()
-
 	case ScreenLoading:
-		content = lipgloss.NewStyle().
-			Width(m.width).
-			Height(m.height).
-			Align(lipgloss.Center, lipgloss.Center).
-			Render("Loading...")
+		blue := lipgloss.NewStyle().Foreground(lipgloss.Color("39")).Bold(true)
+		cyan := lipgloss.NewStyle().Foreground(lipgloss.Color("51"))
+		dim := lipgloss.NewStyle().Foreground(lipgloss.Color("244"))
 
+		tgLogo := cyan.Render(
+			"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⣴⣾⣿⣿⣿⡄\n" +
+				"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣠⣴⣶⣿⣿⡿⠿⠛⢙⣿⣿⠃\n" +
+				"⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣤⣶⣾⣿⣿⠿⠛⠋⠁⠀⠀⠀⣸⣿⣿⠀\n" +
+				"⠀⠀⠀⠀⣀⣤⣴⣾⣿⣿⡿⠟⠛⠉⠀⠀⣠⣤⠞⠁⠀⠀⣿⣿⡇⠀\n" +
+				"⠀⣴⣾⣿⣿⡿⠿⠛⠉⠀⠀⠀⢀⣠⣶⣿⠟⠁⠀⠀⠀⢸⣿⣿⠀⠀\n" +
+				"⠸⣿⣿⣿⣧⣄⣀⠀⠀⣀⣴⣾⣿⣿⠟⠁⠀⠀⠀⠀⠀⣼⣿⡿⠀⠀\n" +
+				"⠀⠈⠙⠻⠿⣿⣿⣿⣿⣿⣿⣿⠟⠁⠀⠀⠀⠀⠀⠀⢠⣿⣿⠇⠀⠀\n" +
+				"⠀⠀⠀⠀⠀⠀⠘⣿⣿⣿⣿⡇⠀⣀⣄⡀⠀⠀⠀⠀⢸⣿⣿⠀⠀⠀\n" +
+				"⠀⠀⠀⠀⠀⠀⠀⠸⣿⣿⣿⣠⣾⣿⣿⣿⣦⡀⠀⠀⣿⣿⡏⠀⠀⠀\n" +
+				"⠀⠀⠀⠀⠀⠀⠀⠀⢿⣿⣿⣿⡿⠋⠈⠻⣿⣿⣦⣸⣿⣿⠁⠀⠀⠀\n" +
+				"⠀⠀⠀⠀⠀⠀⠀⠀⠀⠙⠛⠁⠀⠀⠀⠀⠈⠻⣿⣿⣿⠏⠀⠀⠀⠀")
+
+		title := blue.Render("  T E L E G R A M   C L I")
+		sub := dim.Render("  Terminal Client for Telegram")
+		author := dim.Render("  github.com/tegal1337")
+
+		box := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("39")).
+			Padding(1, 4).
+			Render(tgLogo + "\n\n" + title + "\n\n" + sub + "\n" + author)
+
+		spinner := blue.Render("  ⣾ Connecting to Telegram...")
+		content = lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, box+"\n\n"+spinner)
 	case ScreenMain:
 		content = m.renderMainScreen()
 	}
 
-	// Overlay dialog if present.
 	if m.dialog != nil && m.dialog.IsVisible() {
-		dialogView := m.dialog.View()
-		content = overlayCenter(content, dialogView, m.width, m.height)
+		content = lipgloss.Place(m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			m.dialog.View())
 	}
 
-	// Overlay search if present.
 	if m.search.IsVisible() {
-		searchView := m.search.View()
-		content = overlayCenter(content, searchView, m.width, m.height)
+		content = lipgloss.Place(m.width, m.height,
+			lipgloss.Center, lipgloss.Center,
+			m.search.View())
 	}
 
 	v := tea.NewView(content)
@@ -426,80 +463,79 @@ func (m Model) View() tea.View {
 }
 
 func (m Model) renderMainScreen() string {
-	// Left panel: chat list or contacts.
-	var leftPanel string
+	// Build left panel with rounded border
+	var leftContent string
 	if m.contacts.IsVisible() {
-		leftPanel = m.contacts.View()
+		leftContent = m.contacts.View()
 	} else {
-		leftPanel = m.chatList.View()
+		leftContent = m.chatList.View()
 	}
 
-	// Right panel: chat view + composer.
-	chatHeader := m.chatView.View()
-	composerView := m.composer.View()
-
-	rightPanel := lipgloss.JoinVertical(lipgloss.Left,
-		chatHeader,
-		composerView,
-	)
-
-	// Group info panel (if visible).
-	if m.groupInfo.IsVisible() {
-		rightPanel = lipgloss.JoinHorizontal(lipgloss.Top,
-			rightPanel,
-			m.groupInfo.View(),
-		)
+	leftStyle := m.theme.PanelNormal
+	if m.focus == PanelChatList || m.focus == PanelContacts {
+		leftStyle = m.theme.PanelFocused
 	}
+	leftPanel := leftStyle.
+		Width(m.layout.ChatListWidth - 2).
+		Height(m.layout.ChatListHeight - 2).
+		Render(leftContent)
 
-	// Main area: left + right.
+	// Build chat view with rounded border
+	chatViewStyle := m.theme.PanelNormal
+	if m.focus == PanelChatView {
+		chatViewStyle = m.theme.PanelFocused
+	}
+	chatPanel := chatViewStyle.
+		Width(m.layout.ChatViewWidth - 2).
+		Height(m.layout.ChatViewHeight - 2).
+		Render(m.chatView.View())
+
+	// Build composer with rounded border
+	composerStyle := m.theme.PanelNormal
+	if m.focus == PanelComposer {
+		composerStyle = m.theme.PanelFocused
+	}
+	composerPanel := composerStyle.
+		Width(m.layout.ComposerWidth - 2).
+		Height(m.layout.ComposerHeight - 2).
+		Render(m.composer.View())
+
+	// Right side = chat + composer stacked
+	rightPanel := lipgloss.JoinVertical(lipgloss.Left, chatPanel, composerPanel)
+
+	// Main area = left + right
 	var mainArea string
 	if m.layout.SinglePanel {
 		switch m.focus {
 		case PanelChatList, PanelContacts:
 			mainArea = leftPanel
 		default:
-			mainArea = rightPanel
+			mainArea = lipgloss.JoinVertical(lipgloss.Left, chatPanel, composerPanel)
 		}
 	} else {
-		mainArea = lipgloss.JoinHorizontal(lipgloss.Top,
-			leftPanel,
-			rightPanel,
-		)
+		mainArea = lipgloss.JoinHorizontal(lipgloss.Top, leftPanel, rightPanel)
 	}
 
-	// Status bar at the bottom.
+	// Status bar
 	statusBar := m.statusBar.View()
 
-	return lipgloss.JoinVertical(lipgloss.Left,
-		mainArea,
-		statusBar,
-	)
-}
+	// Keybind help line
+	helpStyle := lipgloss.NewStyle().Foreground(m.theme.TextMuted)
+	focusName := [...]string{"CHATS", "MESSAGES", "COMPOSE", "SEARCH", "CONTACTS", "INFO"}
+	fi := int(m.focus)
+	if fi >= len(focusName) {
+		fi = 0
+	}
+	help := helpStyle.Render(fmt.Sprintf(
+		" Tab:switch │ Esc:back │ /:search │ Alt+C:contacts │ F1/F2/F3:panels │ i:compose │ %s",
+		focusName[fi],
+	))
 
-// overlayCenter places an overlay in the center of the base content.
-func overlayCenter(base, overlay string, width, height int) string {
-	// Simple overlay: just replace center lines.
-	overlayLines := lipgloss.Height(overlay)
-	overlayWidth := lipgloss.Width(overlay)
-
-	baseLines := make([]string, height)
-	for i := range baseLines {
-		baseLines[i] = ""
+	// Pad help to full width
+	helpW := lipgloss.Width(help)
+	if helpW < m.width {
+		help += strings.Repeat(" ", m.width-helpW)
 	}
 
-	startY := (height - overlayLines) / 2
-	startX := (width - overlayWidth) / 2
-	if startX < 0 {
-		startX = 0
-	}
-
-	_ = startY
-	_ = startX
-
-	// For simplicity, just render overlay on top.
-	return lipgloss.Place(width, height,
-		lipgloss.Center, lipgloss.Center,
-		overlay,
-		lipgloss.WithWhitespaceBackground(lipgloss.Color("#00000088")),
-	)
+	return lipgloss.JoinVertical(lipgloss.Left, mainArea, statusBar, help)
 }

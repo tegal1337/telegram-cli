@@ -1,11 +1,12 @@
 package chatlist
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/tegal1337/telegram-cli/internal/media"
 	"github.com/tegal1337/telegram-cli/internal/store"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
@@ -25,7 +26,9 @@ type Model struct {
 	filter   string
 	loading  bool
 	spinner  widgets.Spinner
-	activeChatID int64
+	activeChatId int64
+	avatarCache  *media.Cache
+	avatarRend   *media.ImageRenderer
 }
 
 // New creates a new chat list model.
@@ -42,13 +45,16 @@ func New(s *store.Store, tg *telegram.Client, th *theme.Theme) Model {
 	sp := widgets.NewSpinner("Loading chats...")
 	sp.Style = th.Spinner
 
+	protocol := media.DetectProtocol()
 	return Model{
-		list:    l,
-		store:   s,
-		tg:      tg,
-		theme:   th,
-		loading: true,
-		spinner: sp,
+		list:        l,
+		store:       s,
+		tg:          tg,
+		theme:       th,
+		loading:     true,
+		spinner:     sp,
+		avatarCache: media.NewCache(100),
+		avatarRend:  media.NewImageRenderer(protocol, 4, 2),
 	}
 }
 
@@ -62,7 +68,7 @@ func (m Model) Init() tea.Cmd {
 
 func (m Model) loadChatsCmd() tea.Cmd {
 	return func() tea.Msg {
-		err := m.tg.LoadChats(context.Background(), &client.ChatListMain{}, 50)
+		err := m.tg.LoadChats(&client.ChatListMain{}, 50)
 		if err != nil {
 			return chatsLoadedMsg{err: err}
 		}
@@ -88,9 +94,9 @@ func (m *Model) SetFocused(focused bool) {
 	m.list.Focused = focused
 }
 
-// ActiveChatID returns the currently selected chat ID.
-func (m *Model) ActiveChatID() int64 {
-	return m.activeChatID
+// ActiveChatId returns the currently selected chat ID.
+func (m *Model) ActiveChatId() int64 {
+	return m.activeChatId
 }
 
 // Update handles messages.
@@ -102,17 +108,21 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		m.loading = false
 		m.spinner.Active = false
 		m.refreshList()
+		cmds = append(cmds, m.downloadAvatarsCmd())
+
+	case avatarsLoadedMsg:
+		m.refreshList()
 
 	case telegram.ChatLastMessageMsg:
-		m.store.Chats.UpdateLastMessage(msg.ChatID, msg.LastMessage, msg.Positions)
+		m.store.Chats.UpdateLastMessage(msg.ChatId, msg.LastMessage, msg.Positions)
 		m.refreshList()
 
 	case telegram.ChatPositionMsg:
-		m.store.Chats.UpdatePosition(msg.ChatID, msg.Positions)
+		m.store.Chats.UpdatePosition(msg.ChatId, msg.Positions)
 		m.refreshList()
 
 	case telegram.ChatReadInboxMsg:
-		m.store.Chats.UpdateReadInbox(msg.ChatID, msg.UnreadCount)
+		m.store.Chats.UpdateReadInbox(msg.ChatId, msg.UnreadCount)
 		m.refreshList()
 
 	case telegram.ChatUpdateMsg:
@@ -135,9 +145,9 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 				if item != nil {
 					var chatID int64
 					fmt.Sscanf(item.ID, "%d", &chatID)
-					m.activeChatID = chatID
+					m.activeChatId = chatID
 					return m, func() tea.Msg {
-						return ChatSelectedMsg{ChatID: chatID}
+						return ChatSelectedMsg{ChatId: chatID}
 					}
 				}
 			}
@@ -177,17 +187,25 @@ func (m *Model) refreshList() {
 		online := false
 		if entry.Chat.Type != nil {
 			if pt, ok := entry.Chat.Type.(*client.ChatTypePrivate); ok {
-				online = m.store.Users.IsOnline(pt.UserID)
+				online = m.store.Users.IsOnline(pt.UserId)
 			}
 		}
 
+		// Check avatar cache
+		avatar := ""
+		cacheKey := fmt.Sprintf("av:%d", entry.Chat.Id)
+		if cached, ok := m.avatarCache.Get(cacheKey); ok {
+			avatar = cached
+		}
+
 		items = append(items, widgets.ListItem{
-			ID:       fmt.Sprintf("%d", entry.Chat.ID),
+			ID:       fmt.Sprintf("%d", entry.Chat.Id),
 			Title:    chatIcon(entry.Chat) + " " + entry.Chat.Title,
 			Subtitle: preview,
 			Badge:    badge,
 			Meta:     meta,
 			Online:   online,
+			Avatar:   avatar,
 		})
 	}
 
@@ -210,6 +228,44 @@ func chatIcon(chat *client.Chat) string {
 		return "🔒"
 	default:
 		return "💬"
+	}
+}
+
+type avatarsLoadedMsg struct{}
+
+func (m Model) downloadAvatarsCmd() tea.Cmd {
+	return func() tea.Msg {
+		chats := m.store.Chats.OrderedChats()
+		for _, entry := range chats {
+			if entry.Chat == nil || entry.Chat.Photo == nil {
+				continue
+			}
+			small := entry.Chat.Photo.Small
+			if small == nil {
+				continue
+			}
+			cacheKey := fmt.Sprintf("av:%d", entry.Chat.Id)
+			if _, ok := m.avatarCache.Get(cacheKey); ok {
+				continue // already cached
+			}
+
+			// Download if not complete
+			if small.Local == nil || !small.Local.IsDownloadingCompleted {
+				file, err := m.tg.DownloadFileSync(small.Id)
+				if err != nil || file == nil {
+					continue
+				}
+				small = file
+			}
+
+			if small.Local != nil && small.Local.IsDownloadingCompleted && small.Local.Path != "" {
+				rendered, err := m.avatarRend.RenderFile(small.Local.Path)
+				if err == nil && rendered != "" {
+					m.avatarCache.Set(cacheKey, rendered)
+				}
+			}
+		}
+		return avatarsLoadedMsg{}
 	}
 }
 
@@ -263,14 +319,14 @@ func formatTime(timestamp int32) string {
 // View renders the chat list.
 func (m Model) View() string {
 	if m.loading {
-		return m.theme.ChatListPane.
+		return lipgloss.NewStyle().
 			Width(m.width).
 			Height(m.height).
 			Align(1, 1). // center
 			Render(m.spinner.View())
 	}
 
-	return m.theme.ChatListPane.
+	return lipgloss.NewStyle().
 		Width(m.width).
 		Height(m.height).
 		Render(m.list.View())

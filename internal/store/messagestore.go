@@ -31,7 +31,7 @@ func (s *MessageStore) Append(chatID int64, msg *client.Message) {
 
 	// Deduplicate by message ID.
 	for i, m := range msgs {
-		if m.ID == msg.ID {
+		if m.Id == msg.Id {
 			msgs[i] = msg
 			return
 		}
@@ -57,12 +57,12 @@ func (s *MessageStore) Prepend(chatID int64, msgs []*client.Message) {
 	// Build a set of existing IDs to avoid duplicates.
 	idSet := make(map[int64]struct{}, len(existing))
 	for _, m := range existing {
-		idSet[m.ID] = struct{}{}
+		idSet[m.Id] = struct{}{}
 	}
 
 	var toAdd []*client.Message
 	for _, m := range msgs {
-		if _, exists := idSet[m.ID]; !exists {
+		if _, exists := idSet[m.Id]; !exists {
 			toAdd = append(toAdd, m)
 		}
 	}
@@ -96,7 +96,7 @@ func (s *MessageStore) UpdateMessage(chatID int64, messageID int64, newMsg *clie
 
 	msgs := s.messages[chatID]
 	for i, m := range msgs {
-		if m.ID == messageID {
+		if m.Id == messageID {
 			msgs[i] = newMsg
 			return
 		}
@@ -116,7 +116,7 @@ func (s *MessageStore) Delete(chatID int64, messageIDs []int64) {
 
 	filtered := msgs[:0]
 	for _, m := range msgs {
-		if _, del := idSet[m.ID]; !del {
+		if _, del := idSet[m.Id]; !del {
 			filtered = append(filtered, m)
 		}
 	}
@@ -130,14 +130,14 @@ func (s *MessageStore) Clear(chatID int64) {
 	delete(s.messages, chatID)
 }
 
-// ReplaceMessageID replaces a temporary message ID with the real one (after send).
-func (s *MessageStore) ReplaceMessageID(chatID int64, oldID int64, newMsg *client.Message) {
+// ReplaceMessageId replaces a temporary message ID with the real one (after send).
+func (s *MessageStore) ReplaceMessageId(chatID int64, oldID int64, newMsg *client.Message) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	msgs := s.messages[chatID]
 	for i, m := range msgs {
-		if m.ID == oldID {
+		if m.Id == oldID {
 			msgs[i] = newMsg
 			return
 		}
@@ -146,8 +146,8 @@ func (s *MessageStore) ReplaceMessageID(chatID int64, oldID int64, newMsg *clien
 	s.messages[chatID] = append(msgs, newMsg)
 }
 
-// OldestMessageID returns the oldest cached message ID for a chat.
-func (s *MessageStore) OldestMessageID(chatID int64) int64 {
+// OldestMessageId returns the oldest cached message ID for a chat.
+func (s *MessageStore) OldestMessageId(chatID int64) int64 {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -155,7 +155,7 @@ func (s *MessageStore) OldestMessageID(chatID int64) int64 {
 	if len(msgs) == 0 {
 		return 0
 	}
-	return msgs[0].ID
+	return msgs[0].Id
 }
 
 // Count returns the number of cached messages for a chat.

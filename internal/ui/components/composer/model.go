@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
 	"github.com/tegal1337/telegram-cli/internal/ui/widgets"
 )
@@ -60,8 +60,8 @@ func (m *Model) SetFocused(focused bool) {
 	m.textarea.Focused = focused
 }
 
-// SetChatID sets the active chat for the composer.
-func (m *Model) SetChatID(chatID int64) {
+// SetChatId sets the active chat for the composer.
+func (m *Model) SetChatId(chatID int64) {
 	m.chatID = chatID
 	m.Reset()
 }
@@ -109,15 +109,15 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 			if m.textarea.Value != "" {
 				text := m.textarea.Value
 				submitted := MessageSubmittedMsg{
-					ChatID: m.chatID,
+					ChatId: m.chatID,
 					Text:   text,
 				}
 
 				switch m.mode {
 				case ModeReply:
-					submitted.ReplyToID = m.replyToID
+					submitted.ReplyToId = m.replyToID
 				case ModeEdit:
-					submitted.EditMessageID = m.editMsgID
+					submitted.EditMessageId = m.editMsgID
 				}
 
 				m.Reset()

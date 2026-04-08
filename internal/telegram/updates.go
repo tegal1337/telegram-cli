@@ -19,14 +19,14 @@ type NewMessageMsg struct {
 
 // MessageEditedMsg is sent when a message is edited.
 type MessageEditedMsg struct {
-	ChatID    int64
-	MessageID int64
+	ChatId    int64
+	MessageId int64
 }
 
 // MessageDeletedMsg is sent when messages are deleted.
 type MessageDeletedMsg struct {
-	ChatID     int64
-	MessageIDs []int64
+	ChatId     int64
+	MessageIds []int64
 }
 
 // ChatUpdateMsg is sent when chat metadata changes (title, photo, etc).
@@ -36,33 +36,33 @@ type ChatUpdateMsg struct {
 
 // ChatPositionMsg is sent when a chat's position in the list changes.
 type ChatPositionMsg struct {
-	ChatID    int64
+	ChatId    int64
 	Positions []*client.ChatPosition
 }
 
 // ChatLastMessageMsg is sent when a chat's last message changes.
 type ChatLastMessageMsg struct {
-	ChatID      int64
+	ChatId      int64
 	LastMessage *client.Message
 	Positions   []*client.ChatPosition
 }
 
 // ChatReadInboxMsg is sent when the read inbox state changes.
 type ChatReadInboxMsg struct {
-	ChatID                int64
-	LastReadInboxMessageID int64
+	ChatId                int64
+	LastReadInboxMessageId int64
 	UnreadCount           int32
 }
 
 // ChatReadOutboxMsg is sent when the read outbox state changes.
 type ChatReadOutboxMsg struct {
-	ChatID                 int64
-	LastReadOutboxMessageID int64
+	ChatId                 int64
+	LastReadOutboxMessageId int64
 }
 
 // UserStatusMsg is sent when a user's online status changes.
 type UserStatusMsg struct {
-	UserID int64
+	UserId int64
 	Status client.UserStatus
 }
 
@@ -78,8 +78,8 @@ type FileUpdateMsg struct {
 
 // ChatActionMsg is sent when someone is typing or performing an action.
 type ChatActionMsg struct {
-	ChatID int64
-	UserID int64
+	ChatId int64
+	UserId int64
 	Action client.ChatAction
 }
 
@@ -97,13 +97,13 @@ type UnreadCountMsg struct {
 // MessageSendSucceededMsg is sent when a message is successfully sent.
 type MessageSendSucceededMsg struct {
 	Message      *client.Message
-	OldMessageID int64
+	OldMessageId int64
 }
 
 // MessageSendFailedMsg is sent when a message fails to send.
 type MessageSendFailedMsg struct {
 	Message      *client.Message
-	OldMessageID int64
+	OldMessageId int64
 	ErrorCode    int32
 	ErrorMessage string
 }
@@ -120,6 +120,6 @@ type BasicGroupUpdateMsg struct {
 
 // NotificationMsg is sent for new notifications.
 type NotificationMsg struct {
-	GroupID       int32
+	GroupId       int32
 	Notifications []*client.Notification
 }

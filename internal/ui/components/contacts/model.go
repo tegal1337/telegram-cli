@@ -1,11 +1,12 @@
 package contacts
 
 import (
-	"context"
+	
 	"fmt"
 	"sort"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/store"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
@@ -15,7 +16,7 @@ import (
 
 // ContactSelectedMsg is emitted when a contact is selected.
 type ContactSelectedMsg struct {
-	UserID int64
+	UserId int64
 }
 
 // Model is the contact list component.
@@ -80,14 +81,14 @@ type contactsLoadedMsg struct {
 // LoadContacts fetches the contact list.
 func (m *Model) LoadContacts() tea.Cmd {
 	return func() tea.Msg {
-		contacts, err := m.tg.GetContacts(context.Background())
+		contacts, err := m.tg.GetContacts()
 		if err != nil {
 			return contactsLoadedMsg{err: err}
 		}
 
 		var users []*client.User
-		for _, userID := range contacts.UserIDs {
-			user, err := m.tg.GetUser(context.Background(), userID)
+		for _, userID := range contacts.UserIds {
+			user, err := m.tg.GetUser(userID)
 			if err == nil {
 				users = append(users, user)
 				m.store.Users.Set(user)
@@ -118,7 +119,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					var userID int64
 					fmt.Sscanf(item.ID, "%d", &userID)
 					return m, func() tea.Msg {
-						return ContactSelectedMsg{UserID: userID}
+						return ContactSelectedMsg{UserId: userID}
 					}
 				}
 			}
@@ -152,7 +153,7 @@ func (m *Model) refreshList(users []*client.User) {
 		_, online := user.Status.(*client.UserStatusOnline)
 
 		items = append(items, widgets.ListItem{
-			ID:       fmt.Sprintf("%d", user.ID),
+			ID:       fmt.Sprintf("%d", user.Id),
 			Title:    name,
 			Subtitle: subtitle,
 			Online:   online,
@@ -171,7 +172,7 @@ func (m Model) View() string {
 	title := m.theme.AuthTitle.Width(m.width).Render("Contacts")
 	content := m.list.View()
 
-	return m.theme.ChatListPane.
+	return lipgloss.NewStyle().
 		Width(m.width).
 		Height(m.height).
 		Render(title + "\n" + content)

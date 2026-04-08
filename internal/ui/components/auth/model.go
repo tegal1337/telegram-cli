@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
 	"github.com/tegal1337/telegram-cli/internal/ui/widgets"
@@ -79,13 +79,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) handleAuthState(msg telegram.AuthStateMsg) (Model, tea.Cmd) {
-	switch msg.State.(type) {
-	case *telegram.AuthStateMsg:
-		// Handled by the authorizer directly.
-	}
-
-	// The TUIAuthorizer handles state transitions internally.
-	// We update the UI step based on what the authorizer needs.
+	// Auth state transitions are handled by the root app model.
 	return m, nil
 }
 

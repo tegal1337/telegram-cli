@@ -1,11 +1,11 @@
 package groupinfo
 
 import (
-	"context"
+	
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/store"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
@@ -84,7 +84,7 @@ func (m *Model) OpenGroupInfo(chatID int64) tea.Cmd {
 	m.visible = true
 
 	return func() tea.Msg {
-		chat, err := m.tg.GetChat(context.Background(), chatID)
+		chat, err := m.tg.GetChat(chatID)
 		if err != nil {
 			return nil
 		}
@@ -96,18 +96,18 @@ func (m *Model) OpenGroupInfo(chatID int64) tea.Cmd {
 		switch t := chat.Type.(type) {
 		case *client.ChatTypeSupergroup:
 			result.isChannel = t.IsChannel
-			info, err := m.tg.GetSupergroupFullInfo(context.Background(), t.SupergroupID)
+			info, err := m.tg.GetSupergroupFullInfo(t.SupergroupId)
 			if err == nil {
 				result.description = info.Description
 				result.memberCount = info.MemberCount
 			}
-			members, err := m.tg.GetSupergroupMembers(context.Background(), t.SupergroupID, 0, 50)
+			members, err := m.tg.GetSupergroupMembers(t.SupergroupId, 0, 50)
 			if err == nil {
 				result.members = members.Members
 			}
 
 		case *client.ChatTypeBasicGroup:
-			info, err := m.tg.GetBasicGroupFullInfo(context.Background(), t.BasicGroupID)
+			info, err := m.tg.GetBasicGroupFullInfo(t.BasicGroupId)
 			if err == nil {
 				result.description = info.Description
 				result.members = info.Members
@@ -149,13 +149,13 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m *Model) refreshMembers(members []*client.ChatMember) {
 	items := make([]widgets.ListItem, 0, len(members))
 	for _, member := range members {
-		if sender, ok := member.MemberID.(*client.MessageSenderUser); ok {
-			name := m.store.Users.DisplayName(sender.UserID)
+		if sender, ok := member.MemberId.(*client.MessageSenderUser); ok {
+			name := m.store.Users.DisplayName(sender.UserId)
 			role := memberRole(member.Status)
-			online := m.store.Users.IsOnline(sender.UserID)
+			online := m.store.Users.IsOnline(sender.UserId)
 
 			items = append(items, widgets.ListItem{
-				ID:       fmt.Sprintf("%d", sender.UserID),
+				ID:       fmt.Sprintf("%d", sender.UserId),
 				Title:    name,
 				Subtitle: role,
 				Online:   online,
@@ -215,7 +215,7 @@ func (m Model) View() string {
 		m.memberList.View(),
 	)
 
-	return m.theme.ChatListPane.
+	return lipgloss.NewStyle().
 		Width(m.width).
 		Height(m.height).
 		Render(content)

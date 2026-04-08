@@ -1,11 +1,11 @@
 package search
 
 import (
-	"context"
+	
 	"fmt"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/store"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
@@ -15,8 +15,8 @@ import (
 
 // SearchResultMsg is emitted when a search result is selected.
 type SearchResultMsg struct {
-	ChatID    int64
-	MessageID int64
+	ChatId    int64
+	MessageId int64
 }
 
 // Tab represents a search tab.
@@ -109,13 +109,13 @@ func (m *Model) searchCmd() tea.Cmd {
 
 		switch tab {
 		case TabChats:
-			chats, err := m.tg.SearchChats(context.Background(), query, 20)
+			chats, err := m.tg.SearchChats(query, 20)
 			if err == nil {
-				for _, chatID := range chats.ChatIDs {
-					chat, err := m.tg.GetChat(context.Background(), chatID)
+				for _, chatID := range chats.ChatIds {
+					chat, err := m.tg.GetChat(chatID)
 					if err == nil {
 						items = append(items, widgets.ListItem{
-							ID:       fmt.Sprintf("%d", chat.ID),
+							ID:       fmt.Sprintf("%d", chat.Id),
 							Title:    chat.Title,
 							Subtitle: chatTypeLabel(chat),
 						})
@@ -124,16 +124,16 @@ func (m *Model) searchCmd() tea.Cmd {
 			}
 
 		case TabMessages:
-			found, err := m.tg.SearchMessages(context.Background(), 0, query, 0, 20)
+			found, err := m.tg.SearchMessages(query, 20)
 			if err == nil {
 				for _, msg := range found.Messages {
-					chat, _ := m.tg.GetChat(context.Background(), msg.ChatID)
-					title := fmt.Sprintf("%d", msg.ChatID)
+					chat, _ := m.tg.GetChat(msg.ChatId)
+					title := fmt.Sprintf("%d", msg.ChatId)
 					if chat != nil {
 						title = chat.Title
 					}
 					items = append(items, widgets.ListItem{
-						ID:       fmt.Sprintf("%d:%d", msg.ChatID, msg.ID),
+						ID:       fmt.Sprintf("%d:%d", msg.ChatId, msg.Id),
 						Title:    title,
 						Subtitle: messagePreview(msg),
 					})
@@ -141,13 +141,13 @@ func (m *Model) searchCmd() tea.Cmd {
 			}
 
 		case TabGlobal:
-			chats, err := m.tg.SearchChats(context.Background(), query, 20)
+			chats, err := m.tg.SearchChats(query, 20)
 			if err == nil {
-				for _, chatID := range chats.ChatIDs {
-					chat, err := m.tg.GetChat(context.Background(), chatID)
+				for _, chatID := range chats.ChatIds {
+					chat, err := m.tg.GetChat(chatID)
 					if err == nil {
 						items = append(items, widgets.ListItem{
-							ID:       fmt.Sprintf("%d", chat.ID),
+							ID:       fmt.Sprintf("%d", chat.Id),
 							Title:    chat.Title,
 							Subtitle: chatTypeLabel(chat),
 						})
@@ -230,7 +230,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 					}
 					m.visible = false
 					return m, func() tea.Msg {
-						return SearchResultMsg{ChatID: chatID, MessageID: messageID}
+						return SearchResultMsg{ChatId: chatID, MessageId: messageID}
 					}
 				}
 			}

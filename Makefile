@@ -13,7 +13,7 @@ build:
 		go build -trimpath -ldflags="-s -w" -o $(BUILD_DIR)/$(BINARY_NAME) ./cmd/teletui
 
 run: build
-	./$(BUILD_DIR)/$(BINARY_NAME)
+	LD_LIBRARY_PATH=$(TDLIB_DIR)/tdlib/lib:$$LD_LIBRARY_PATH ./$(BUILD_DIR)/$(BINARY_NAME)
 
 test:
 	go test ./...

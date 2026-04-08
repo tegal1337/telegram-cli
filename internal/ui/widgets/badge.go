@@ -3,7 +3,7 @@ package widgets
 import (
 	"fmt"
 
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // RenderBadge renders an unread count badge.

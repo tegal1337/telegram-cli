@@ -44,7 +44,7 @@ func (s *FileStore) Update(file *client.File) {
 		}
 	}
 
-	s.files[file.ID] = state
+	s.files[file.Id] = state
 }
 
 // Get returns the state of a file.

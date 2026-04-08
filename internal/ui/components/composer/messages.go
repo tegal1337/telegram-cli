@@ -2,10 +2,10 @@ package composer
 
 // MessageSubmittedMsg is emitted when the user submits a message.
 type MessageSubmittedMsg struct {
-	ChatID         int64
+	ChatId         int64
 	Text           string
-	ReplyToID      int64
-	EditMessageID  int64
+	ReplyToId      int64
+	EditMessageId  int64
 }
 
 // AttachmentAddedMsg is emitted when a file is attached.

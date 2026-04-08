@@ -1,16 +1,12 @@
 package telegram
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/tegal1337/telegram-cli/internal/config"
 	"github.com/zelenin/go-tdlib/client"
 )
 
-// AuthState represents the current state of the authorization flow.
 type AuthState int
 
 const (
@@ -22,18 +18,19 @@ const (
 	AuthStateClosed
 )
 
-// TUIAuthorizer implements client.AuthorizationStateHandler for the TUI.
-// It sends auth state changes as tea.Msg through a channel that the
-// auth UI component reads.
+// AuthStateCallback is called when the auth state changes.
+// Used to notify the TUI about state transitions.
+type AuthStateCallback func(AuthState, string)
+
 type TUIAuthorizer struct {
 	tdlibParams *client.SetTdlibParametersRequest
 	phoneCh     chan string
 	codeCh      chan string
 	passwordCh  chan string
 	phone       string
+	onState     AuthStateCallback
 }
 
-// NewTUIAuthorizer creates a new authorizer for the TUI auth flow.
 func NewTUIAuthorizer(cfg *config.Config) *TUIAuthorizer {
 	return &TUIAuthorizer{
 		tdlibParams: TdlibParameters(cfg),
@@ -44,22 +41,29 @@ func NewTUIAuthorizer(cfg *config.Config) *TUIAuthorizer {
 	}
 }
 
-// SubmitPhone sends the phone number to the auth flow.
+// SetStateCallback sets the callback for auth state changes.
+func (a *TUIAuthorizer) SetStateCallback(cb AuthStateCallback) {
+	a.onState = cb
+}
+
+func (a *TUIAuthorizer) notifyState(state AuthState, hint string) {
+	if a.onState != nil {
+		a.onState(state, hint)
+	}
+}
+
 func (a *TUIAuthorizer) SubmitPhone(phone string) {
 	a.phoneCh <- phone
 }
 
-// SubmitCode sends the verification code to the auth flow.
 func (a *TUIAuthorizer) SubmitCode(code string) {
 	a.codeCh <- code
 }
 
-// SubmitPassword sends the 2FA password to the auth flow.
 func (a *TUIAuthorizer) SubmitPassword(password string) {
 	a.passwordCh <- password
 }
 
-// Handle implements client.AuthorizationStateHandler.
 func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState) error {
 	switch s := state.(type) {
 	case *client.AuthorizationStateWaitTdlibParameters:
@@ -67,6 +71,7 @@ func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState
 		return err
 
 	case *client.AuthorizationStateWaitPhoneNumber:
+		a.notifyState(AuthStateWaitPhone, "")
 		phone := a.phone
 		if phone == "" {
 			phone = <-a.phoneCh
@@ -82,6 +87,7 @@ func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState
 		return err
 
 	case *client.AuthorizationStateWaitCode:
+		a.notifyState(AuthStateWaitCode, "")
 		code := <-a.codeCh
 		_, err := c.CheckAuthenticationCode(&client.CheckAuthenticationCodeRequest{
 			Code: code,
@@ -89,7 +95,8 @@ func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState
 		return err
 
 	case *client.AuthorizationStateWaitPassword:
-		_ = s // contains password hint
+		hint := s.PasswordHint
+		a.notifyState(AuthStateWaitPassword, hint)
 		password := <-a.passwordCh
 		_, err := c.CheckAuthenticationPassword(&client.CheckAuthenticationPasswordRequest{
 			Password: password,
@@ -97,9 +104,11 @@ func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState
 		return err
 
 	case *client.AuthorizationStateReady:
+		a.notifyState(AuthStateReady, "")
 		return nil
 
 	case *client.AuthorizationStateClosed:
+		a.notifyState(AuthStateClosed, "")
 		return nil
 
 	default:
@@ -107,27 +116,6 @@ func (a *TUIAuthorizer) Handle(c *client.Client, state client.AuthorizationState
 	}
 }
 
-// CLIAuthorizer creates a simple CLI-based authorizer for testing.
-func CLIAuthorizer(cfg *config.Config) client.AuthorizationStateHandler {
-	authorizer := client.ClientAuthorizer(TdlibParameters(cfg))
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			select {
-			case <-authorizer.PhoneNumber:
-				fmt.Print("Enter phone number: ")
-				phone, _ := reader.ReadString('\n')
-				authorizer.PhoneNumber <- strings.TrimSpace(phone)
-			case <-authorizer.Code:
-				fmt.Print("Enter code: ")
-				code, _ := reader.ReadString('\n')
-				authorizer.Code <- strings.TrimSpace(code)
-			case <-authorizer.Password:
-				fmt.Print("Enter 2FA password: ")
-				pw, _ := reader.ReadString('\n')
-				authorizer.Password <- strings.TrimSpace(pw)
-			}
-		}
-	}()
-	return authorizer
+func (a *TUIAuthorizer) Close() {
+	// Don't close channels — they may still be in use by the TUI.
 }

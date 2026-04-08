@@ -22,7 +22,7 @@ func NewUserStore() *UserStore {
 func (s *UserStore) Set(user *client.User) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.users[user.ID] = user
+	s.users[user.Id] = user
 }
 
 // Get returns a cached user by ID.

@@ -84,7 +84,7 @@ func EntitiesToMarkdown(text *client.FormattedText) string {
 			b.WriteString(entityText)
 
 		case *client.TextEntityTypeMentionName:
-			b.WriteString(fmt.Sprintf("@[%s](user:%d)", entityText, t.UserID))
+			b.WriteString(fmt.Sprintf("@[%s](user:%d)", entityText, t.UserId))
 
 		case *client.TextEntityTypeHashtag:
 			b.WriteString(entityText)

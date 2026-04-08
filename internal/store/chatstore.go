@@ -32,10 +32,10 @@ func (s *ChatStore) Set(chat *client.Chat) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	entry, exists := s.chats[chat.ID]
+	entry, exists := s.chats[chat.Id]
 	if !exists {
 		entry = &ChatEntry{}
-		s.chats[chat.ID] = entry
+		s.chats[chat.Id] = entry
 	}
 	entry.Chat = chat
 	entry.UnreadCount = chat.UnreadCount
@@ -47,7 +47,7 @@ func (s *ChatStore) Set(chat *client.Chat) {
 	if len(chat.Positions) > 0 {
 		for _, pos := range chat.Positions {
 			if _, ok := pos.List.(*client.ChatListMain); ok {
-				entry.Position = pos.Order
+				entry.Position = int64(pos.Order)
 			}
 		}
 	}
@@ -68,13 +68,13 @@ func (s *ChatStore) UpdatePosition(chatID int64, positions []*client.ChatPositio
 
 	entry, ok := s.chats[chatID]
 	if !ok {
-		entry = &ChatEntry{Chat: &client.Chat{ID: chatID}}
+		entry = &ChatEntry{Chat: &client.Chat{Id: chatID}}
 		s.chats[chatID] = entry
 	}
 
 	for _, pos := range positions {
 		if _, ok := pos.List.(*client.ChatListMain); ok {
-			entry.Position = pos.Order
+			entry.Position = int64(pos.Order)
 		}
 	}
 }
@@ -86,14 +86,14 @@ func (s *ChatStore) UpdateLastMessage(chatID int64, msg *client.Message, positio
 
 	entry, ok := s.chats[chatID]
 	if !ok {
-		entry = &ChatEntry{Chat: &client.Chat{ID: chatID}}
+		entry = &ChatEntry{Chat: &client.Chat{Id: chatID}}
 		s.chats[chatID] = entry
 	}
 
 	entry.LastMessage = msg
 	for _, pos := range positions {
 		if _, ok := pos.List.(*client.ChatListMain); ok {
-			entry.Position = pos.Order
+			entry.Position = int64(pos.Order)
 		}
 	}
 }

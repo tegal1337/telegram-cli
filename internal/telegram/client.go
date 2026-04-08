@@ -1,25 +1,27 @@
 package telegram
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/tegal1337/telegram-cli/internal/config"
 	"github.com/zelenin/go-tdlib/client"
 )
 
-// Client wraps the TDLib client with application-specific functionality.
 type Client struct {
+	mu       sync.RWMutex
 	tdClient *client.Client
 	config   *config.Config
+	ready    chan struct{}
 }
 
-// NewClient creates a new TDLib client with the given configuration.
-// The authorizer handles the authentication flow (phone, QR, bot token).
-func NewClient(cfg *config.Config, authorizer client.AuthorizationStateHandler) (*Client, error) {
+// NewClientAsync starts TDLib client creation in the background.
+// The client blocks on authorization — call this before starting the TUI
+// so the auth UI can feed credentials via the authorizer channels.
+func NewClientAsync(cfg *config.Config, authorizer client.AuthorizationStateHandler) *Client {
 	_, err := client.SetLogVerbosityLevel(&client.SetLogVerbosityLevelRequest{
 		NewVerbosityLevel: 1,
 	})
@@ -30,18 +32,41 @@ func NewClient(cfg *config.Config, authorizer client.AuthorizationStateHandler) 
 	os.MkdirAll(cfg.Storage.DatabaseDir, 0o755)
 	os.MkdirAll(cfg.Storage.FilesDir, 0o755)
 
-	tdClient, err := client.NewClient(authorizer)
-	if err != nil {
-		return nil, fmt.Errorf("creating TDLib client: %w", err)
+	c := &Client{
+		config: cfg,
+		ready:  make(chan struct{}),
 	}
 
-	return &Client{
-		tdClient: tdClient,
-		config:   cfg,
-	}, nil
+	go func() {
+		tdClient, err := client.NewClient(authorizer)
+		if err != nil {
+			log.Printf("NewClient error: %s", err)
+			return
+		}
+		c.mu.Lock()
+		c.tdClient = tdClient
+		c.mu.Unlock()
+		close(c.ready)
+	}()
+
+	return c
 }
 
-// TdlibParameters returns the TDLib parameters from the config.
+// WaitReady blocks until the client is authorized and ready.
+func (c *Client) WaitReady() {
+	<-c.ready
+}
+
+// IsReady returns true if the client is authorized.
+func (c *Client) IsReady() bool {
+	select {
+	case <-c.ready:
+		return true
+	default:
+		return false
+	}
+}
+
 func TdlibParameters(cfg *config.Config) *client.SetTdlibParametersRequest {
 	return &client.SetTdlibParametersRequest{
 		UseTestDc:           false,
@@ -60,24 +85,29 @@ func TdlibParameters(cfg *config.Config) *client.SetTdlibParametersRequest {
 	}
 }
 
-// Close gracefully shuts down the TDLib client.
 func (c *Client) Close() {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	if c.tdClient != nil {
-		c.tdClient.Close(context.Background())
+		c.tdClient.Close()
 	}
 }
 
-// TD returns the underlying TDLib client for direct API access.
 func (c *Client) TD() *client.Client {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.tdClient
 }
 
-// GetMe returns the current authorized user.
-func (c *Client) GetMe(ctx context.Context) (*client.User, error) {
-	return c.tdClient.GetMe(ctx)
+func (c *Client) GetMe() (*client.User, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.tdClient == nil {
+		return nil, fmt.Errorf("client not ready")
+	}
+	return c.tdClient.GetMe()
 }
 
-// DataDir returns the configured data directory base path.
 func (c *Client) DataDir() string {
 	return filepath.Dir(c.config.Storage.DatabaseDir)
 }

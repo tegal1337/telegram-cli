@@ -1,113 +1,98 @@
 package telegram
 
 import (
-	"context"
-
 	"github.com/zelenin/go-tdlib/client"
 )
 
-// GetSupergroupInfo returns supergroup/channel metadata.
-func (c *Client) GetSupergroupInfo(ctx context.Context, supergroupID int64) (*client.Supergroup, error) {
-	return c.tdClient.GetSupergroup(ctx, &client.GetSupergroupRequest{
-		SupergroupID: supergroupID,
+func (c *Client) GetSupergroupInfo(supergroupId int64) (*client.Supergroup, error) {
+	return c.tdClient.GetSupergroup(&client.GetSupergroupRequest{
+		SupergroupId: supergroupId,
 	})
 }
 
-// GetSupergroupFullInfo returns full supergroup/channel info.
-func (c *Client) GetSupergroupFullInfo(ctx context.Context, supergroupID int64) (*client.SupergroupFullInfo, error) {
-	return c.tdClient.GetSupergroupFullInfo(ctx, &client.GetSupergroupFullInfoRequest{
-		SupergroupID: supergroupID,
+func (c *Client) GetSupergroupFullInfo(supergroupId int64) (*client.SupergroupFullInfo, error) {
+	return c.tdClient.GetSupergroupFullInfo(&client.GetSupergroupFullInfoRequest{
+		SupergroupId: supergroupId,
 	})
 }
 
-// GetSupergroupMembers returns members of a supergroup/channel.
-func (c *Client) GetSupergroupMembers(ctx context.Context, supergroupID int64, offset int32, limit int32) (*client.ChatMembers, error) {
-	return c.tdClient.GetSupergroupMembers(ctx, &client.GetSupergroupMembersRequest{
-		SupergroupID: supergroupID,
+func (c *Client) GetSupergroupMembers(supergroupId int64, offset int32, limit int32) (*client.ChatMembers, error) {
+	return c.tdClient.GetSupergroupMembers(&client.GetSupergroupMembersRequest{
+		SupergroupId: supergroupId,
 		Offset:       offset,
 		Limit:        limit,
 	})
 }
 
-// GetBasicGroupInfo returns basic group metadata.
-func (c *Client) GetBasicGroupInfo(ctx context.Context, groupID int64) (*client.BasicGroup, error) {
-	return c.tdClient.GetBasicGroup(ctx, &client.GetBasicGroupRequest{
-		BasicGroupID: groupID,
+func (c *Client) GetBasicGroupInfo(groupId int64) (*client.BasicGroup, error) {
+	return c.tdClient.GetBasicGroup(&client.GetBasicGroupRequest{
+		BasicGroupId: groupId,
 	})
 }
 
-// GetBasicGroupFullInfo returns full basic group info.
-func (c *Client) GetBasicGroupFullInfo(ctx context.Context, groupID int64) (*client.BasicGroupFullInfo, error) {
-	return c.tdClient.GetBasicGroupFullInfo(ctx, &client.GetBasicGroupFullInfoRequest{
-		BasicGroupID: groupID,
+func (c *Client) GetBasicGroupFullInfo(groupId int64) (*client.BasicGroupFullInfo, error) {
+	return c.tdClient.GetBasicGroupFullInfo(&client.GetBasicGroupFullInfoRequest{
+		BasicGroupId: groupId,
 	})
 }
 
-// SetChatTitle sets the title of a chat.
-func (c *Client) SetChatTitle(ctx context.Context, chatID int64, title string) error {
-	_, err := c.tdClient.SetChatTitle(ctx, &client.SetChatTitleRequest{
-		ChatID: chatID,
+func (c *Client) SetChatTitle(chatId int64, title string) error {
+	_, err := c.tdClient.SetChatTitle(&client.SetChatTitleRequest{
+		ChatId: chatId,
 		Title:  title,
 	})
 	return err
 }
 
-// SetChatDescription sets the description of a chat.
-func (c *Client) SetChatDescription(ctx context.Context, chatID int64, description string) error {
-	_, err := c.tdClient.SetChatDescription(ctx, &client.SetChatDescriptionRequest{
-		ChatID:      chatID,
+func (c *Client) SetChatDescription(chatId int64, description string) error {
+	_, err := c.tdClient.SetChatDescription(&client.SetChatDescriptionRequest{
+		ChatId:      chatId,
 		Description: description,
 	})
 	return err
 }
 
-// BanChatMember bans a member from a chat.
-func (c *Client) BanChatMember(ctx context.Context, chatID int64, memberID client.MessageSender) error {
-	_, err := c.tdClient.BanChatMember(ctx, &client.BanChatMemberRequest{
-		ChatID:   chatID,
-		MemberID: memberID,
+func (c *Client) BanChatMember(chatId int64, memberId client.MessageSender) error {
+	_, err := c.tdClient.BanChatMember(&client.BanChatMemberRequest{
+		ChatId:   chatId,
+		MemberId: memberId,
 	})
 	return err
 }
 
-// CreatePrivateChat creates a private chat with a user.
-func (c *Client) CreatePrivateChat(ctx context.Context, userID int64) (*client.Chat, error) {
-	return c.tdClient.CreatePrivateChat(ctx, &client.CreatePrivateChatRequest{
-		UserID: userID,
+func (c *Client) CreatePrivateChat(userId int64) (*client.Chat, error) {
+	return c.tdClient.CreatePrivateChat(&client.CreatePrivateChatRequest{
+		UserId: userId,
 	})
 }
 
-// CreateBasicGroupChat creates a new basic group.
-func (c *Client) CreateBasicGroupChat(ctx context.Context, title string, userIDs []int64) (*client.Chat, error) {
-	return c.tdClient.CreateNewBasicGroupChat(ctx, &client.CreateNewBasicGroupChatRequest{
+func (c *Client) CreateBasicGroupChat(title string, userIds []int64) (*client.CreatedBasicGroupChat, error) {
+	return c.tdClient.CreateNewBasicGroupChat(&client.CreateNewBasicGroupChatRequest{
 		Title:   title,
-		UserIDs: userIDs,
+		UserIds: userIds,
 	})
 }
 
-// CreateSupergroupChat creates a new supergroup or channel.
-func (c *Client) CreateSupergroupChat(ctx context.Context, title string, isChannel bool, description string) (*client.Chat, error) {
-	return c.tdClient.CreateNewSupergroupChat(ctx, &client.CreateNewSupergroupChatRequest{
+func (c *Client) CreateSupergroupChat(title string, isChannel bool, description string) (*client.Chat, error) {
+	return c.tdClient.CreateNewSupergroupChat(&client.CreateNewSupergroupChatRequest{
 		Title:       title,
 		IsChannel:   isChannel,
 		Description: description,
 	})
 }
 
-// PinMessage pins a message in a chat.
-func (c *Client) PinMessage(ctx context.Context, chatID int64, messageID int64) error {
-	_, err := c.tdClient.PinChatMessage(ctx, &client.PinChatMessageRequest{
-		ChatID:    chatID,
-		MessageID: messageID,
+func (c *Client) PinMessage(chatId int64, messageId int64) error {
+	_, err := c.tdClient.PinChatMessage(&client.PinChatMessageRequest{
+		ChatId:    chatId,
+		MessageId: messageId,
 	})
 	return err
 }
 
-// UnpinMessage unpins a message in a chat.
-func (c *Client) UnpinMessage(ctx context.Context, chatID int64, messageID int64) error {
-	_, err := c.tdClient.UnpinChatMessage(ctx, &client.UnpinChatMessageRequest{
-		ChatID:    chatID,
-		MessageID: messageID,
+func (c *Client) UnpinMessage(chatId int64, messageId int64) error {
+	_, err := c.tdClient.UnpinChatMessage(&client.UnpinChatMessageRequest{
+		ChatId:    chatId,
+		MessageId: messageId,
 	})
 	return err
 }

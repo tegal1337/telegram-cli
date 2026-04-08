@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/tegal1337/telegram-cli/internal/store"
 	"github.com/tegal1337/telegram-cli/internal/telegram"
 	"github.com/tegal1337/telegram-cli/internal/ui/theme"
@@ -20,7 +21,7 @@ type Model struct {
 	userName       string
 	typing         map[int64][]int64 // chatID -> userIDs typing
 	unreadCount    int32
-	activeChatID   int64
+	activeChatId   int64
 }
 
 // New creates a new status bar model.
@@ -43,9 +44,9 @@ func (m *Model) SetUserName(name string) {
 	m.userName = name
 }
 
-// SetActiveChatID sets the currently viewed chat.
-func (m *Model) SetActiveChatID(chatID int64) {
-	m.activeChatID = chatID
+// SetActiveChatId sets the currently viewed chat.
+func (m *Model) SetActiveChatId(chatID int64) {
+	m.activeChatId = chatID
 }
 
 // Update handles messages.
@@ -60,29 +61,29 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 		}
 
 	case telegram.ChatActionMsg:
-		if msg.UserID != 0 {
-			users := m.typing[msg.ChatID]
+		if msg.UserId != 0 {
+			users := m.typing[msg.ChatId]
 			// Add user if typing, remove if stopped.
 			switch msg.Action.(type) {
 			case *client.ChatActionTyping:
 				found := false
 				for _, uid := range users {
-					if uid == msg.UserID {
+					if uid == msg.UserId {
 						found = true
 						break
 					}
 				}
 				if !found {
-					m.typing[msg.ChatID] = append(users, msg.UserID)
+					m.typing[msg.ChatId] = append(users, msg.UserId)
 				}
 			case *client.ChatActionCancel:
 				filtered := users[:0]
 				for _, uid := range users {
-					if uid != msg.UserID {
+					if uid != msg.UserId {
 						filtered = append(filtered, uid)
 					}
 				}
-				m.typing[msg.ChatID] = filtered
+				m.typing[msg.ChatId] = filtered
 			}
 		}
 
@@ -95,7 +96,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 
 // TypingIndicator returns a typing indicator string for the active chat.
 func (m Model) TypingIndicator() string {
-	users, ok := m.typing[m.activeChatID]
+	users, ok := m.typing[m.activeChatId]
 	if !ok || len(users) == 0 {
 		return ""
 	}

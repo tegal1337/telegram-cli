@@ -126,23 +126,44 @@ func defaultConfig() *Config {
 		},
 		Keys: KeyConfig{
 			Quit:          "ctrl+c",
-			FocusChatList: "ctrl+1",
-			FocusChatView: "ctrl+2",
-			FocusComposer: "ctrl+3",
+			FocusChatList: "F1",
+			FocusChatView: "F2",
+			FocusComposer: "F3",
 			Search:        "/",
-			Contacts:      "ctrl+k",
-			NextChat:      "ctrl+j",
-			PrevChat:      "ctrl+k",
+			Contacts:      "alt+c",
+			NextChat:      "alt+j",
+			PrevChat:      "alt+k",
 			Reply:         "r",
 			EditMessage:   "e",
 			DeleteMessage: "d",
 			Forward:       "f",
 			ScrollUp:      "k",
 			ScrollDown:    "j",
-			PageUp:        "ctrl+u",
-			PageDown:      "ctrl+d",
+			PageUp:        "pgup",
+			PageDown:      "pgdown",
 		},
 	}
+}
+
+// Save writes the config to the default config path.
+func Save(cfg *Config) error {
+	path := defaultConfigPath()
+	os.MkdirAll(filepath.Dir(path), 0o755)
+
+	data, err := toml.Marshal(cfg)
+	if err != nil {
+		return fmt.Errorf("marshaling config: %w", err)
+	}
+	return os.WriteFile(path, data, 0o600)
+}
+
+func defaultConfigPath() string {
+	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
+	if xdgConfig == "" {
+		home, _ := os.UserHomeDir()
+		xdgConfig = filepath.Join(home, ".config")
+	}
+	return filepath.Join(xdgConfig, "tele-tui", "config.toml")
 }
 
 func findConfigPath() string {
@@ -150,13 +171,7 @@ func findConfigPath() string {
 		return p
 	}
 
-	xdgConfig := os.Getenv("XDG_CONFIG_HOME")
-	if xdgConfig == "" {
-		home, _ := os.UserHomeDir()
-		xdgConfig = filepath.Join(home, ".config")
-	}
-
-	path := filepath.Join(xdgConfig, "tele-tui", "config.toml")
+	path := defaultConfigPath()
 	if _, err := os.Stat(path); err == nil {
 		return path
 	}

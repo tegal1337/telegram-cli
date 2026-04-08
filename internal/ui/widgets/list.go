@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	tea "charm.land/bubbletea/v2"
-	"github.com/charmbracelet/lipgloss/v2"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ListItem represents a single item in a scrollable list.
@@ -16,6 +16,7 @@ type ListItem struct {
 	Badge    string
 	Meta     string
 	Online   bool
+	Avatar   string // 2-line rendered avatar (half-block image or initials)
 }
 
 // List is a generic scrollable list widget with vim-style navigation.
@@ -135,6 +136,9 @@ func (l *List) View() string {
 	var b strings.Builder
 
 	end := min(l.Offset+visibleItems, len(l.Items))
+	avatarW := 5 // avatar column width (4 chars + 1 space)
+	textW := l.Width - avatarW
+
 	for i := l.Offset; i < end; i++ {
 		item := l.Items[i]
 		isActive := i == l.Cursor
@@ -144,32 +148,62 @@ func (l *List) View() string {
 			style = l.StyleActive
 		}
 
-		// Title line with meta and badge.
-		titleLine := l.StyleTitle.Render(truncate(item.Title, l.Width-10))
-		if item.Online {
-			titleLine = l.StyleOnline.Render("● ") + titleLine
+		// Avatar: use rendered image or colored initials
+		avatar := item.Avatar
+		if avatar == "" {
+			avatar = renderInitials(item.Title, isActive)
 		}
+
+		// Title line with meta
+		titleText := item.Title
+		if item.Online {
+			titleText = "● " + titleText
+		}
+		titleLine := l.StyleTitle.Render(truncate(titleText, textW-8))
 		if item.Meta != "" {
-			metaW := l.Width - lipgloss.Width(titleLine) - 4
+			metaW := textW - lipgloss.Width(titleLine) - 2
 			if metaW > 0 {
 				meta := l.StyleMeta.Copy().Width(metaW).Align(lipgloss.Right).Render(item.Meta)
 				titleLine = titleLine + meta
 			}
 		}
 
-		// Subtitle line with badge.
-		subLine := l.StyleSub.Render(truncate(item.Subtitle, l.Width-8))
+		// Subtitle line with badge
+		subLine := l.StyleSub.Render(truncate(item.Subtitle, textW-6))
 		if item.Badge != "" {
 			badge := l.StyleBadge.Render(item.Badge)
-			padW := l.Width - lipgloss.Width(subLine) - lipgloss.Width(badge) - 4
+			padW := textW - lipgloss.Width(subLine) - lipgloss.Width(badge) - 2
 			if padW > 0 {
 				subLine = subLine + strings.Repeat(" ", padW) + badge
 			}
 		}
 
-		row := style.Width(l.Width).Render(
-			fmt.Sprintf("%s\n%s", titleLine, subLine),
-		)
+		// Join avatar + text side by side
+		textContent := fmt.Sprintf("%s\n%s", titleLine, subLine)
+
+		// Split avatar into lines (should be 2 lines for half-block)
+		avatarLines := strings.Split(avatar, "\n")
+		textLines := strings.Split(textContent, "\n")
+
+		// Pad to same height
+		for len(avatarLines) < 2 {
+			avatarLines = append(avatarLines, strings.Repeat(" ", 4))
+		}
+		for len(textLines) < 2 {
+			textLines = append(textLines, "")
+		}
+
+		var rowLines []string
+		for ri := 0; ri < 2; ri++ {
+			av := avatarLines[ri]
+			tx := ""
+			if ri < len(textLines) {
+				tx = textLines[ri]
+			}
+			rowLines = append(rowLines, av+" "+tx)
+		}
+
+		row := style.Width(l.Width).Render(strings.Join(rowLines, "\n"))
 		b.WriteString(row)
 		if i < end-1 {
 			b.WriteString("\n")
@@ -177,6 +211,51 @@ func (l *List) View() string {
 	}
 
 	return b.String()
+}
+
+// renderInitials creates a 2-line colored box with initials from the title.
+func renderInitials(title string, active bool) string {
+	// Extract up to 2 initials
+	initials := ""
+	words := strings.Fields(title)
+	for _, w := range words {
+		r := []rune(w)
+		if len(r) > 0 && r[0] > 32 {
+			// Skip emoji-like chars
+			if r[0] < 127 || r[0] > 0x2000 {
+				initials += string(r[0])
+			}
+			if len(initials) >= 2 {
+				break
+			}
+		}
+	}
+	if initials == "" {
+		initials = "?"
+	}
+
+	// Pick a color based on hash of title
+	colors := []string{"196", "208", "220", "34", "39", "129", "170", "214", "49", "201"}
+	hash := 0
+	for _, r := range title {
+		hash = hash*31 + int(r)
+	}
+	if hash < 0 {
+		hash = -hash
+	}
+	bg := colors[hash%len(colors)]
+
+	style := lipgloss.NewStyle().
+		Background(lipgloss.Color(bg)).
+		Foreground(lipgloss.Color("231")).
+		Bold(true).
+		Width(4).
+		Align(lipgloss.Center)
+
+	line1 := style.Render(initials)
+	line2 := style.Render("  ")
+
+	return line1 + "\n" + line2
 }
 
 func truncate(s string, maxWidth int) string {
