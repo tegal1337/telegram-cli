@@ -66,12 +66,11 @@ jobs:
 
       - name: Build TDLib
         if: steps.cache-tdlib-win.outputs.cache-hit != 'true'
-        shell: cmd
+        shell: pwsh
         run: |
           git clone --depth 1 https://github.com/tdlib/td.git C:\td\td-src
-          cd C:\td\td-src
-          mkdir build
-          cd build
+          New-Item -ItemType Directory -Force -Path C:\td\td-src\build
+          Set-Location C:\td\td-src\build
           cmake -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\td\tdlib ..
           cmake --build . --target tdjson --config Release --parallel
           cmake --install . --config Release
