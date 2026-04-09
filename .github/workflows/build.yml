@@ -3,12 +3,13 @@ name: Build
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
 
 jobs:
-  build:
-    name: Build (${{ matrix.os }})
+  build-linux:
+    name: Linux (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -16,11 +17,9 @@ jobs:
         os: [ubuntu-24.04, ubuntu-22.04]
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
 
@@ -34,57 +33,168 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/td/tdlib
-          key: tdlib-${{ matrix.os }}-v1.8
+          key: tdlib-${{ matrix.os }}-v1.8.43
 
       - name: Build TDLib
         if: steps.cache-tdlib.outputs.cache-hit != 'true'
         run: |
           git clone --depth 1 https://github.com/tdlib/td.git ~/td/td-src
-          cd ~/td/td-src
-          mkdir build && cd build
+          cd ~/td/td-src && mkdir build && cd build
           cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/td/tdlib ..
           cmake --build . -j$(nproc)
           cmake --install .
 
-      - name: Build telegram-cli
+      - name: Build
         run: |
           CGO_ENABLED=1 \
           CGO_CFLAGS="-I$HOME/td/tdlib/include" \
           CGO_LDFLAGS="-L$HOME/td/tdlib/lib -ltdjson" \
           go build -trimpath -ldflags="-s -w" -o bin/tele-tui ./cmd/teletui
 
-      - name: Verify binary
-        run: |
-          file bin/tele-tui
-          ls -lh bin/tele-tui
+      - name: Verify
+        run: file bin/tele-tui && ls -lh bin/tele-tui
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: tele-tui-${{ matrix.os }}
+          name: tele-tui-linux-amd64-${{ matrix.os }}
           path: bin/tele-tui
+
+  build-macos:
+    name: macOS (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-14
+            arch: arm64
+          - runner: macos-13
+            arch: x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Install TDLib
+        run: brew install tdlib
+
+      - name: Build
+        run: |
+          TDLIB_PREFIX=$(brew --prefix tdlib)
+          CGO_ENABLED=1 \
+          CGO_CFLAGS="-I${TDLIB_PREFIX}/include" \
+          CGO_LDFLAGS="-L${TDLIB_PREFIX}/lib -ltdjson" \
+          go build -trimpath -ldflags="-s -w" -o bin/tele-tui ./cmd/teletui
+
+      - name: Verify
+        run: file bin/tele-tui && ls -lh bin/tele-tui
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tele-tui-darwin-${{ matrix.arch }}
+          path: bin/tele-tui
+
+  build-windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-cmake
+            mingw-w64-x86_64-gperf
+            mingw-w64-x86_64-openssl
+            mingw-w64-x86_64-zlib
+            make
+            git
+
+      - name: Cache TDLib
+        id: cache-tdlib-win
+        uses: actions/cache@v4
+        with:
+          path: C:/td/tdlib
+          key: tdlib-windows-mingw64-v1.8.43
+
+      - name: Build TDLib
+        if: steps.cache-tdlib-win.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: |
+          git clone --depth 1 https://github.com/tdlib/td.git /c/td/td-src
+          cd /c/td/td-src && mkdir build && cd build
+          cmake -G "MSYS Makefiles" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/c/td/tdlib \
+            ..
+          cmake --build . -j$(nproc)
+          cmake --install .
+
+      - name: Build
+        shell: msys2 {0}
+        env:
+          GOROOT: ${{ env.GOROOT_1_25_X64 }}
+        run: |
+          export PATH="$GOROOT/bin:$PATH"
+          CGO_ENABLED=1 \
+          CGO_CFLAGS="-IC:/td/tdlib/include" \
+          CGO_LDFLAGS="-LC:/td/tdlib/bin -ltdjson" \
+          go build -trimpath -ldflags="-s -w" -o bin/tele-tui.exe ./cmd/teletui
+
+      - name: Verify
+        run: dir bin\tele-tui.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tele-tui-windows-amd64
+          path: bin/tele-tui.exe
 
   release:
     name: Release
-    needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: [build-linux, build-macos, build-windows]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
 
       - name: Package binaries
         run: |
-          for dir in tele-tui-*; do
-            os=$(echo "$dir" | sed 's/tele-tui-//')
-            mv "$dir/tele-tui" "tele-tui-linux-amd64-${os}"
+          mkdir -p release
+          # Linux
+          for dir in artifacts/tele-tui-linux-*; do
+            name=$(basename "$dir")
+            cp "$dir/tele-tui" "release/${name}"
+            chmod +x "release/${name}"
           done
+          # macOS
+          for dir in artifacts/tele-tui-darwin-*; do
+            name=$(basename "$dir")
+            cp "$dir/tele-tui" "release/${name}"
+            chmod +x "release/${name}"
+          done
+          # Windows
+          cp artifacts/tele-tui-windows-amd64/tele-tui.exe release/tele-tui-windows-amd64.exe
+          ls -la release/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: tele-tui-*
+          files: release/*
           generate_release_notes: true
