@@ -73,9 +73,9 @@ make run
 ```
 
 `make setup` automatically handles everything:
-- **Linux**: installs build deps via apt/dnf/pacman, builds TDLib, registers library path
-- **macOS**: installs via `brew install tdlib`
-- **Windows**: use MSYS2 (see below)
+- **Ubuntu/Debian**: `apt install` deps, builds TDLib, registers library path
+- **Fedora**: `dnf install` deps, builds TDLib
+- **Arch**: `pacman -S` deps, builds TDLib
 
 ### Prerequisites
 
@@ -83,12 +83,24 @@ make run
 - **mpv** (optional) — for voice/audio/video playback (`sudo apt install mpv`)
 - **Telegram API credentials** — from [my.telegram.org/apps](https://my.telegram.org/apps)
 
-### Windows (MSYS2)
+### Windows
 
 ```bash
-pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-gperf
-# Then build TDLib: https://github.com/tdlib/td#building
-make build
+# Install build tools
+choco install cmake gperf golang
+
+# Build TDLib
+git clone --depth 1 https://github.com/tdlib/td.git C:\td\td-src
+cd C:\td\td-src && mkdir build && cd build
+cmake -A x64 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=C:\td\tdlib ..
+cmake --build . --target tdjson --config Release --parallel
+cmake --install . --config Release
+
+# Build telegram-cli
+set CGO_ENABLED=1
+set CGO_CFLAGS=-IC:\td\tdlib\include
+set CGO_LDFLAGS=-LC:\td\tdlib\lib -ltdjson
+go build -trimpath -ldflags="-s -w" -o tele-tui.exe .\cmd\teletui
 ```
 
 On first run, you'll be prompted:
