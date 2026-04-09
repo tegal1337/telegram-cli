@@ -18,15 +18,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
-
-      - name: Install TDLib dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential cmake gperf zlib1g-dev libssl-dev
 
       - name: Cache TDLib
         id: cache-tdlib
@@ -35,24 +29,12 @@ jobs:
           path: ~/td/tdlib
           key: tdlib-${{ matrix.os }}-v1.8.43
 
-      - name: Build TDLib
+      - name: Setup TDLib
         if: steps.cache-tdlib.outputs.cache-hit != 'true'
-        run: |
-          git clone --depth 1 https://github.com/tdlib/td.git ~/td/td-src
-          cd ~/td/td-src && mkdir build && cd build
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$HOME/td/tdlib ..
-          cmake --build . -j$(nproc)
-          cmake --install .
+        run: ./scripts/setup-tdlib.sh
 
       - name: Build
-        run: |
-          CGO_ENABLED=1 \
-          CGO_CFLAGS="-I$HOME/td/tdlib/include" \
-          CGO_LDFLAGS="-L$HOME/td/tdlib/lib -ltdjson" \
-          go build -trimpath -ldflags="-s -w" -o bin/tele-tui ./cmd/teletui
-
-      - name: Verify
-        run: file bin/tele-tui && ls -lh bin/tele-tui
+        run: make build
 
       - uses: actions/upload-artifact@v4
         with:
@@ -73,24 +55,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
 
-      - name: Install TDLib
+      - name: Setup TDLib
         run: brew install tdlib
 
       - name: Build
-        run: |
-          TDLIB_PREFIX=$(brew --prefix tdlib)
-          CGO_ENABLED=1 \
-          CGO_CFLAGS="-I${TDLIB_PREFIX}/include" \
-          CGO_LDFLAGS="-L${TDLIB_PREFIX}/lib -ltdjson" \
-          go build -trimpath -ldflags="-s -w" -o bin/tele-tui ./cmd/teletui
-
-      - name: Verify
-        run: file bin/tele-tui && ls -lh bin/tele-tui
+        run: make build
 
       - uses: actions/upload-artifact@v4
         with:
@@ -103,7 +76,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v5
         with:
           go-version: '1.25'
@@ -119,8 +91,7 @@ jobs:
             mingw-w64-x86_64-gperf
             mingw-w64-x86_64-openssl
             mingw-w64-x86_64-zlib
-            make
-            git
+            make git
 
       - name: Cache TDLib
         id: cache-tdlib-win
@@ -135,10 +106,7 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/tdlib/td.git /c/td/td-src
           cd /c/td/td-src && mkdir build && cd build
-          cmake -G "MSYS Makefiles" \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/c/td/tdlib \
-            ..
+          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/c/td/tdlib ..
           cmake --build . -j$(nproc)
           cmake --install .
 
@@ -152,9 +120,6 @@ jobs:
           CGO_CFLAGS="-IC:/td/tdlib/include" \
           CGO_LDFLAGS="-LC:/td/tdlib/bin -ltdjson" \
           go build -trimpath -ldflags="-s -w" -o bin/tele-tui.exe ./cmd/teletui
-
-      - name: Verify
-        run: dir bin\tele-tui.exe
 
       - uses: actions/upload-artifact@v4
         with:
@@ -174,27 +139,18 @@ jobs:
         with:
           path: artifacts
 
-      - name: Package binaries
+      - name: Package
         run: |
-          mkdir -p release
-          # Linux
+          mkdir release
           for dir in artifacts/tele-tui-linux-*; do
-            name=$(basename "$dir")
-            cp "$dir/tele-tui" "release/${name}"
-            chmod +x "release/${name}"
+            name=$(basename "$dir"); cp "$dir/tele-tui" "release/${name}"; chmod +x "release/${name}"
           done
-          # macOS
           for dir in artifacts/tele-tui-darwin-*; do
-            name=$(basename "$dir")
-            cp "$dir/tele-tui" "release/${name}"
-            chmod +x "release/${name}"
+            name=$(basename "$dir"); cp "$dir/tele-tui" "release/${name}"; chmod +x "release/${name}"
           done
-          # Windows
           cp artifacts/tele-tui-windows-amd64/tele-tui.exe release/tele-tui-windows-amd64.exe
-          ls -la release/
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
           files: release/*
           generate_release_notes: true

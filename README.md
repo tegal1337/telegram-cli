@@ -58,29 +58,6 @@
 ● Connected  IMTAQIN    Tab:switch │ Esc:back │ /:search │ Alt+C:contacts
 ```
 
-## Prerequisites
-
-- **Go 1.23+**
-- **TDLib** (`libtdjson`) — [installation guide](https://github.com/zelenin/go-tdlib#installation)
-- **mpv** (optional) — for voice/audio/video playback
-- **Telegram API credentials** — from [my.telegram.org/apps](https://my.telegram.org/apps)
-
-### Install TDLib (Ubuntu/Debian)
-
-```bash
-sudo apt install -y build-essential cmake gperf zlib1g-dev libssl-dev
-git clone --depth 1 https://github.com/tdlib/td.git ~/td/td-src
-cd ~/td/td-src && mkdir build && cd build
-cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=~/td/tdlib ..
-cmake --build . -j$(nproc) && cmake --install .
-```
-
-### Install TDLib (macOS)
-
-```bash
-brew install tdlib
-```
-
 ## Quick Start
 
 ```bash
@@ -88,11 +65,30 @@ brew install tdlib
 git clone https://github.com/tegal1337/telegram-cli.git
 cd telegram-cli
 
-# Build (set TDLib path if custom location)
-make build
+# Auto-install TDLib + dependencies (one command)
+make setup
 
-# Run — first run will prompt for API credentials
+# Build & run — first run prompts for API credentials
 make run
+```
+
+`make setup` automatically handles everything:
+- **Linux**: installs build deps via apt/dnf/pacman, builds TDLib, registers library path
+- **macOS**: installs via `brew install tdlib`
+- **Windows**: use MSYS2 (see below)
+
+### Prerequisites
+
+- **Go 1.23+**
+- **mpv** (optional) — for voice/audio/video playback (`sudo apt install mpv`)
+- **Telegram API credentials** — from [my.telegram.org/apps](https://my.telegram.org/apps)
+
+### Windows (MSYS2)
+
+```bash
+pacman -S mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake mingw-w64-x86_64-gperf
+# Then build TDLib: https://github.com/tdlib/td#building
+make build
 ```
 
 On first run, you'll be prompted:
@@ -227,28 +223,14 @@ pkg/utils/                String/time/sanitize utilities
 
 ## Building from Source
 
-### Requirements
-
-| Dependency | Version | Purpose |
-|-----------|---------|---------|
-| Go | 1.23+ | Compiler |
-| TDLib | 1.8+ | Telegram API |
-| CMake | 3.0+ | Build TDLib |
-| OpenSSL | - | TDLib dependency |
-| mpv | (optional) | Media playback |
-
-### Build
-
 ```bash
-# Default (TDLib at ~/td/tdlib)
-make build
-
-# Custom TDLib path
-TDLIB_DIR=/usr/local make build
-
-# Run
-LD_LIBRARY_PATH=~/td/tdlib/lib make run
+make setup    # auto-install TDLib (Linux/macOS)
+make build    # compile binary → bin/tele-tui
+make run      # build + run (auto-detects TDLib path)
+make clean    # remove build artifacts
 ```
+
+The Makefile auto-detects TDLib in: `~/td/tdlib`, `/usr/local`, `/usr`, `/opt/homebrew/opt/tdlib`.
 
 ## Contributing
 
