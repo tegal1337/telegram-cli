@@ -235,6 +235,7 @@ func (c *Client) SearchMessages(query string, limit int32) ([]*Message, error) {
 
 	res, err := c.api.MessagesSearchGlobal(ctx, &tg.MessagesSearchGlobalRequest{
 		Q:          query,
+		Filter:     &tg.InputMessagesFilterEmpty{},
 		OffsetPeer: &tg.InputPeerEmpty{},
 		Limit:      int(limit),
 	})
